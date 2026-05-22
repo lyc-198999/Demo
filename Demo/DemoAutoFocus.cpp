@@ -14,11 +14,12 @@ constexpr quint32 kAutoFocusFinishTolerancePulses = 20;
 constexpr int kAutoFocusMoveSettleMs = 700;
 constexpr size_t kAutoFocusMinFitSamples = 6;
 constexpr size_t kAutoFocusMaxSamples = 100;
+constexpr size_t kAutoFocusDirectionProbeSamples = 5;
+constexpr size_t kAutoFocusInitialProbeSamples = 32;
 constexpr size_t kAutoFocusPostPeakSamples = 3;
 constexpr double kAutoFocusDropTolerance = 0.6;
 constexpr double kAutoFocusDropRatio = 0.01;
 constexpr double kAutoFocusVerifySharpnessRatio = 0.95;
-constexpr double kAutoFocusFineCorrectionWindowFactor = 2.5;
 
 // 用法：判断清晰度是否出现超过噪声阈值的有效下降。
 bool IsSignificantSharpnessDrop(double previous, double current)
@@ -180,6 +181,12 @@ bool ShouldUseFineAutoFocusStep(const std::vector<double>& values,
                                 size_t bestIndex,
                                 int postPeakSamples)
 {
+    const bool hasRiseBeforeBest = HasRiseBeforeIndex(values, bestIndex);
+    if (!hasRiseBeforeBest)
+    {
+        return false;
+    }
+
     if (postPeakSamples > 0)
     {
         return true;
@@ -194,23 +201,84 @@ bool ShouldUseFineAutoFocusStep(const std::vector<double>& values,
     const double current = values.back();
     const double plateauThreshold = std::max(kAutoFocusDropTolerance * 0.5,
                                              std::abs(current) * kAutoFocusDropRatio * 0.5);
-    return HasRiseBeforeIndex(values, bestIndex) &&
-           std::abs(current - previous) <= plateauThreshold;
+    return std::abs(current - previous) <= plateauThreshold;
 }
 
-// 用法：焦面附近修正时限制单次移动量，避免大步长越过最佳位置。
-double LimitNearFocusCorrection(double correctionPulses, quint32 scanStep, quint32 fineStep)
+// 用法：计算采样位置和清晰度的线性斜率，用于初始扫描方向判断。
+double LinearSharpnessSlope(const std::vector<double>& positions,
+                            const std::vector<double>& values,
+                            size_t sampleCount)
 {
-    const double absoluteCorrection = std::abs(correctionPulses);
-    const double nearFocusWindow = std::max(static_cast<double>(scanStep) * kAutoFocusFineCorrectionWindowFactor,
-                                            static_cast<double>(fineStep) * 4.0);
-    if (absoluteCorrection <= static_cast<double>(fineStep) || absoluteCorrection > nearFocusWindow)
+    if (positions.size() < sampleCount || values.size() < sampleCount || sampleCount < 2)
     {
-        return correctionPulses;
+        return 0.0;
     }
 
-    return std::copysign(static_cast<double>(fineStep), correctionPulses);
+    double meanPosition = 0.0;
+    double meanSharpness = 0.0;
+    for (size_t i = 0; i < sampleCount; ++i)
+    {
+        meanPosition += positions[i];
+        meanSharpness += values[i];
+    }
+    meanPosition /= static_cast<double>(sampleCount);
+    meanSharpness /= static_cast<double>(sampleCount);
+
+    double numerator = 0.0;
+    double denominator = 0.0;
+    for (size_t i = 0; i < sampleCount; ++i)
+    {
+        const double dx = positions[i] - meanPosition;
+        numerator += dx * (values[i] - meanSharpness);
+        denominator += dx * dx;
+    }
+
+    if (std::abs(denominator) < 1e-12)
+    {
+        return 0.0;
+    }
+
+    return numerator / denominator;
 }
+
+// 用法：判断启动方向是否没有形成有效上升，需要丢弃单侧探测并反向扫描。
+bool ShouldReverseInitialScan(const std::vector<double>& positions,
+                              const std::vector<double>& values,
+                              size_t bestIndex,
+                              int tailDrops,
+                              int postPeakSamples,
+                              bool hasSeenRise)
+{
+    const size_t sampleCount = values.size();
+    if (sampleCount < 2 || hasSeenRise)
+    {
+        return false;
+    }
+
+    if (sampleCount == kAutoFocusDirectionProbeSamples)
+    {
+        const double positionRange = positions[kAutoFocusDirectionProbeSamples - 1] - positions.front();
+        const double expectedChange =
+            LinearSharpnessSlope(positions, values, kAutoFocusDirectionProbeSamples) * positionRange;
+        const double threshold = std::max(kAutoFocusDropTolerance,
+                                          std::abs(values.front()) * kAutoFocusDropRatio);
+        return expectedChange < -threshold;
+    }
+
+    if (tailDrops >= 2)
+    {
+        return true;
+    }
+
+    if (bestIndex == 0 &&
+        postPeakSamples >= static_cast<int>(kAutoFocusPostPeakSamples))
+    {
+        return true;
+    }
+
+    return sampleCount >= kAutoFocusInitialProbeSamples;
+}
+
 }
 
 // 用法：自动模式下完成采样、扫描、拟合和最终回焦调度。
@@ -293,32 +361,57 @@ void MainWindow::processAutoFocus()
 
     if (verifyFinalPosition)
     {
+        const bool closeToFinalTarget =
+            autoFocusHasFinalTarget &&
+            std::abs(autoFocusEstimatedPosition - autoFocusFinalTargetPosition) <=
+                static_cast<double>(DemoAutoFocusDetail::kAutoFocusFinishTolerancePulses);
         const bool closeToBestSharpness =
             autoFocusPeakConfirmed &&
             currentSharpness >= bestSharpness * DemoAutoFocusDetail::kAutoFocusVerifySharpnessRatio;
-        if (closeToBestSharpness)
+        if (closeToFinalTarget && closeToBestSharpness)
         {
             autoFocusFinished = true;
-            appendLog(QString("自动对焦完成：复核清晰度=%1，最佳清晰度=%2。")
+            appendLog(QString("自动对焦完成：目标位置=%1，当前位置=%2，复核清晰度=%3，最佳清晰度=%4。")
+                          .arg(autoFocusFinalTargetPosition, 0, 'f', 0)
+                          .arg(autoFocusEstimatedPosition, 0, 'f', 0)
                           .arg(currentSharpness, 0, 'f', 2)
                           .arg(bestSharpness, 0, 'f', 2));
             updateStatusDisplay();
             return;
         }
 
-        appendLog(QString("最终位置清晰度低于采样峰值，继续搜索：当前=%1，峰值=%2。")
-                      .arg(currentSharpness, 0, 'f', 2)
-                      .arg(bestSharpness, 0, 'f', 2));
+        if (!closeToFinalTarget)
+        {
+            appendLog(QString("最终位置未到目标，继续修正：目标位置=%1，当前位置=%2。")
+                          .arg(autoFocusFinalTargetPosition, 0, 'f', 0)
+                          .arg(autoFocusEstimatedPosition, 0, 'f', 0));
+        }
+        else
+        {
+            appendLog(QString("最终位置清晰度低于采样峰值，继续搜索：当前=%1，峰值=%2。")
+                          .arg(currentSharpness, 0, 'f', 2)
+                          .arg(bestSharpness, 0, 'f', 2));
+        }
+        autoFocusHasFinalTarget = false;
     }
 
     const int tailDrops = DemoAutoFocusDetail::CountTailSharpnessDrops(autoFocusSharpnessValues);
     const bool hasSeenRise = DemoAutoFocusDetail::HasAnySharpnessRise(autoFocusSharpnessValues);
-    if (tailDrops >= 2 && !autoFocusPeakConfirmed && !autoFocusDirectionReversed && !hasSeenRise)
+    if (!autoFocusPeakConfirmed && !autoFocusDirectionReversed &&
+        DemoAutoFocusDetail::ShouldReverseInitialScan(autoFocusPositions,
+                                                      autoFocusSharpnessValues,
+                                                      bestIndex,
+                                                      tailDrops,
+                                                      postPeakSamples,
+                                                      hasSeenRise))
     {
         autoFocusScanDirection = -autoFocusScanDirection;
         autoFocusFineProbeDirection = -autoFocusScanDirection;
         autoFocusDirectionReversed = true;
-        appendLog("检测到清晰度先连续下降，已切换为反方向扫描。");
+        autoFocusFineScanActive = false;
+        autoFocusPositions.clear();
+        autoFocusSharpnessValues.clear();
+        appendLog("初始扫描方向未检测到有效上升，已丢弃单侧探测并切换为反方向扫描。");
 
         if (!sendAutoFocusMove(static_cast<double>(autoFocusScanDirection) *
                                    static_cast<double>(autoFocusScanStep),
@@ -351,9 +444,16 @@ void MainWindow::processAutoFocus()
         }
 
         const bool useFineStep =
+            autoFocusFineScanActive ||
             DemoAutoFocusDetail::ShouldUseFineAutoFocusStep(autoFocusSharpnessValues,
                                                             bestIndex,
                                                             postPeakSamples);
+        if (useFineStep && !autoFocusFineScanActive)
+        {
+            autoFocusFineScanActive = true;
+            appendLog("已进入焦面附近小步扫描，将保持小步长直到峰值确认。");
+        }
+
         const quint32 scanStep = useFineStep ? autoFocusFineStep : autoFocusScanStep;
         if (!sendAutoFocusMove(static_cast<double>(autoFocusScanDirection) *
                                    static_cast<double>(scanStep),
@@ -398,10 +498,6 @@ void MainWindow::processAutoFocus()
             correctionPulses,
             -static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses),
             static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses));
-        const double boundedCorrection =
-            DemoAutoFocusDetail::LimitNearFocusCorrection(safetyBoundedCorrection,
-                                                          autoFocusScanStep,
-                                                          autoFocusFineStep);
 
         if (std::abs(correctionPulses - safetyBoundedCorrection) > 0.5)
         {
@@ -409,13 +505,7 @@ void MainWindow::processAutoFocus()
                           .arg(safetyBoundedCorrection, 0, 'f', 0));
         }
 
-        if (std::abs(safetyBoundedCorrection - boundedCorrection) > 0.5)
-        {
-            appendLog(QString("接近焦面，已将本次修正限制为小步长 %1 脉冲。")
-                          .arg(std::abs(boundedCorrection), 0, 'f', 0));
-        }
-
-        if (std::abs(boundedCorrection) <=
+        if (std::abs(safetyBoundedCorrection) <=
             static_cast<double>(DemoAutoFocusDetail::kAutoFocusFinishTolerancePulses))
         {
             if (autoFocusPeakConfirmed &&
@@ -433,12 +523,14 @@ void MainWindow::processAutoFocus()
             if (std::abs(fallbackDelta) >
                 static_cast<double>(DemoAutoFocusDetail::kAutoFocusFinishTolerancePulses))
             {
-                const double boundedFallbackDelta =
-                    DemoAutoFocusDetail::LimitNearFocusCorrection(fallbackDelta,
-                                                                  autoFocusScanStep,
-                                                                  autoFocusFineStep);
-                if (sendAutoFocusMove(boundedFallbackDelta, "回到采样峰值"))
+                const double safetyBoundedFallbackDelta = std::clamp(
+                    fallbackDelta,
+                    -static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses),
+                    static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses));
+                if (sendAutoFocusMove(safetyBoundedFallbackDelta, "回到采样峰值"))
                 {
+                    autoFocusFinalTargetPosition = bestPosition;
+                    autoFocusHasFinalTarget = true;
                     autoFocusFinalMoveSent = true;
                 }
                 else
@@ -460,8 +552,10 @@ void MainWindow::processAutoFocus()
             return;
         }
 
-        if (sendAutoFocusMove(boundedCorrection, "最终回焦"))
+        if (sendAutoFocusMove(safetyBoundedCorrection, "最终回焦"))
         {
+            autoFocusFinalTargetPosition = targetPosition;
+            autoFocusHasFinalTarget = true;
             autoFocusFinalMoveSent = true;
         }
         else
@@ -504,12 +598,14 @@ void MainWindow::processAutoFocus()
             return;
         }
 
-        const double boundedCorrection =
-            DemoAutoFocusDetail::LimitNearFocusCorrection(correctionPulses,
-                                                          autoFocusScanStep,
-                                                          autoFocusFineStep);
-        if (sendAutoFocusMove(boundedCorrection, "回到采样峰值"))
+        const double safetyBoundedCorrection = std::clamp(
+            correctionPulses,
+            -static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses),
+            static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses));
+        if (sendAutoFocusMove(safetyBoundedCorrection, "回到采样峰值"))
         {
+            autoFocusFinalTargetPosition = bestPosition;
+            autoFocusHasFinalTarget = true;
             autoFocusFinalMoveSent = true;
         }
         else
@@ -528,6 +624,8 @@ void MainWindow::resetAutoFocusState(bool logReset)
                           autoFocusMovePending ||
                           autoFocusFinished ||
                           autoFocusFinalMoveSent ||
+                          autoFocusFineScanActive ||
+                          autoFocusHasFinalTarget ||
                           !autoFocusBlockReason.isEmpty();
 
     autoFocusPositions.clear();
@@ -539,9 +637,12 @@ void MainWindow::resetAutoFocusState(bool logReset)
     autoFocusHasEstimatedPosition = false;
     autoFocusDirectionReversed = false;
     autoFocusPeakConfirmed = false;
+    autoFocusFineScanActive = false;
+    autoFocusHasFinalTarget = false;
     autoFocusScanDirection = 1;
     autoFocusFineProbeDirection = -autoFocusScanDirection;
     autoFocusEstimatedPosition = 0.0;
+    autoFocusFinalTargetPosition = 0.0;
     autoFocusBlockReason.clear();
 
     if (logReset && hadState)
@@ -550,16 +651,13 @@ void MainWindow::resetAutoFocusState(bool logReset)
     }
 }
 
-// 用法：记录当前位置对应的清晰度采样，位置读取不可靠时使用内部估算位置。
+// 用法：记录当前位置对应的清晰度采样，驱动器回读失败时当前位置保留内部估算值。
 bool MainWindow::appendAutoFocusSample()
 {
-    if (!autoFocusHasEstimatedPosition)
-    {
-        autoFocusEstimatedPosition = static_cast<double>(currentPosition);
-        autoFocusHasEstimatedPosition = true;
-    }
+    const double position = static_cast<double>(currentPosition);
+    autoFocusEstimatedPosition = position;
+    autoFocusHasEstimatedPosition = true;
 
-    const double position = autoFocusEstimatedPosition;
     if (!autoFocusPositions.empty() && std::abs(autoFocusPositions.back() - position) < 0.5)
     {
         autoFocusSharpnessValues.back() = currentSharpness;
@@ -569,7 +667,7 @@ bool MainWindow::appendAutoFocusSample()
     autoFocusPositions.push_back(position);
     autoFocusSharpnessValues.push_back(currentSharpness);
 
-    appendLog(QString("自动对焦采样：估算位置=%1，清晰度=%2。")
+    appendLog(QString("自动对焦采样：当前位置=%1，清晰度=%2。")
                   .arg(position, 0, 'f', 0)
                   .arg(currentSharpness, 0, 'f', 2));
     updateStatusDisplay();
@@ -633,7 +731,16 @@ bool MainWindow::sendAutoFocusMove(double deltaPulses, const QString& reason)
 
     QTimer::singleShot(150, this, [this]() { synchronizeMotorStatus(false); });
     QTimer::singleShot(DemoAutoFocusDetail::kAutoFocusMoveSettleMs, this, [this]() {
-        synchronizeMotorStatus(false);
+        if (synchronizeMotorStatus(false))
+        {
+            autoFocusEstimatedPosition = static_cast<double>(currentPosition);
+            autoFocusHasEstimatedPosition = true;
+        }
+        else
+        {
+            currentPosition = static_cast<qint32>(std::llround(autoFocusEstimatedPosition));
+        }
+
         autoFocusMovePending = false;
         updateStatusDisplay();
     });

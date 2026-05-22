@@ -2,6 +2,7 @@
 #include "ui_Demo.h"
 
 #include <QDateTime>
+#include <QFormLayout>
 #include <QFrame>
 #include <QScrollArea>
 #include <QSizePolicy>
@@ -15,13 +16,13 @@ namespace DemoWindowDetail
 constexpr int kFrameIntervalMs = 80;
 constexpr int kMaxLogBlocks = 200;
 constexpr double kPulsesPerTurn = 51200.0;
-constexpr int kImageMinimumWidth = 480;
-constexpr int kImageMinimumHeight = 270;
-constexpr int kControlPanelMinimumWidth = 280;
-constexpr int kControlPanelMaximumWidth = 360;
+constexpr int kImageMinimumWidth = 420;
+constexpr int kImageMinimumHeight = 236;
+constexpr int kControlPanelMinimumWidth = 320;
+constexpr int kControlPanelMaximumWidth = 460;
 constexpr int kLogPanelMinimumHeight = 180;
 constexpr int kLogTextMinimumHeight = 140;
-constexpr int kImageColumnStretch = 5;
+constexpr int kImageColumnStretch = 3;
 constexpr int kControlColumnStretch = 2;
 
 // 用法：调整右侧功能区内的控件顺序，让急停始终位于低频设置区域上方。
@@ -66,9 +67,27 @@ void ConfigureControlPanelScrollArea(Ui::DemoClass* ui)
     ui->gridLayoutRoot->addWidget(scrollArea, 0, 1, 1, 1);
 }
 
+// 用法：让右侧状态文本在窄面板内换行显示，避免撑宽或被裁切。
+void ConfigureStatusTextLayout(Ui::DemoClass* ui)
+{
+    ui->formLayoutStatus->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    ui->formLayoutMotorParams->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    ui->gridLayoutSerial->setColumnStretch(1, 1);
+
+    ui->label_position->setWordWrap(true);
+    ui->label_position->setMinimumWidth(0);
+    ui->label_position->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+
+    ui->label_status->setWordWrap(true);
+    ui->label_status->setMinimumWidth(0);
+    ui->label_status->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+}
+
 // 用法：调整主布局比例，保留右侧功能区和日志区的最低可读空间。
 void ConfigureMainLayout(Ui::DemoClass* ui)
 {
+    ConfigureStatusTextLayout(ui);
+
     ui->label_image->setMinimumSize(kImageMinimumWidth, kImageMinimumHeight);
     ui->gridLayoutRoot->setColumnMinimumWidth(1, kControlPanelMinimumWidth);
     ui->gridLayoutRoot->setColumnStretch(0, kImageColumnStretch);
@@ -252,7 +271,9 @@ void MainWindow::updateStatusDisplay()
         statusParts << "图像帧格式错误";
     }
 
-    ui->label_status->setText(statusParts.join(" | "));
+    const QString statusText = statusParts.join(" | ");
+    ui->label_status->setText(statusText);
+    ui->label_status->setToolTip(statusText);
 }
 
 // 用法：向日志框追加带时间戳的中文日志。

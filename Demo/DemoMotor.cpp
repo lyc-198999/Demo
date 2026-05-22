@@ -195,11 +195,11 @@ void MainWindow::toggleEmergencyStop(bool active)
 }
 
 // 用法：读取驱动器快照并同步界面状态。
-void MainWindow::synchronizeMotorStatus(bool logOnFailure)
+bool MainWindow::synchronizeMotorStatus(bool logOnFailure)
 {
     if (!serialConnected)
     {
-        return;
+        return false;
     }
 
     MotorSerialPort::MotorSnapshot snapshot;
@@ -210,7 +210,7 @@ void MainWindow::synchronizeMotorStatus(bool logOnFailure)
         {
             appendLog(QString("读取电机状态失败：%1").arg(result.message));
         }
-        return;
+        return false;
     }
 
     currentPosition = snapshot.position;
@@ -218,6 +218,7 @@ void MainWindow::synchronizeMotorStatus(bool logOnFailure)
     motorEnabled = snapshot.enabled;
     motorInPosition = snapshot.inPosition;
     updateStatusDisplay();
+    return true;
 }
 
 // 用法：手动模式下发送相对移动指令。

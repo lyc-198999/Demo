@@ -51,7 +51,7 @@ private:
     // 用法：刷新界面状态文字。
     void updateStatusDisplay();
     // 用法：同步驱动器状态到界面。
-    void synchronizeMotorStatus(bool logOnFailure = true);
+    bool synchronizeMotorStatus(bool logOnFailure = true);
     // 用法：追加日志文本。
     void appendLog(const QString& message);
     // 用法：发送手动相对移动。
@@ -104,9 +104,12 @@ private:
     bool autoFocusHasEstimatedPosition = false;
     bool autoFocusDirectionReversed = false;
     bool autoFocusPeakConfirmed = false;
+    bool autoFocusFineScanActive = false;
+    bool autoFocusHasFinalTarget = false;
     int autoFocusScanDirection = 1;
     int autoFocusFineProbeDirection = -1;
     double autoFocusEstimatedPosition = 0.0;
+    double autoFocusFinalTargetPosition = 0.0;
     std::vector<double> autoFocusPositions;
     std::vector<double> autoFocusSharpnessValues;
     QString autoFocusBlockReason;
