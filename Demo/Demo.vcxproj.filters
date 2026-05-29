@@ -61,9 +61,6 @@
     <ClCompile Include="Sharpness.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SharpnessTrendWidget.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />
@@ -79,9 +76,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SerialPort.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SharpnessTrendWidget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -13,7 +13,6 @@
 
 class QLabel;
 class QProgressBar;
-class SharpnessTrendWidget;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class DemoClass; }
@@ -56,7 +55,7 @@ private:
 
     // 用法：窗口缩放时刷新图像显示。
     void resizeEvent(QResizeEvent* event) override;
-    // 用法：创建现代化仪器布局、监控看板和全局样式。
+    // 用法：创建现代化仪器布局、右侧对焦结果卡和全局样式。
     void initializeModernUi();
     // 用法：显示当前相机帧。
     void showFrame(const cv::Mat& frame);
@@ -64,7 +63,7 @@ private:
     void refreshDisplayedImage();
     // 用法：刷新界面状态文字。
     void updateStatusDisplay();
-    // 用法：同步顶部状态条、监控摘要和清晰度曲线标记。
+    // 用法：同步顶部状态条和右侧对焦结果卡。
     void updateModernDashboard();
     // 用法：返回当前自动对焦阶段描述。
     QString focusStageText() const;
@@ -102,13 +101,13 @@ private:
     QLabel* labelMotorBadge = nullptr;
     QLabel* labelEmergencyBadge = nullptr;
     QLabel* labelFocusStageBadge = nullptr;
-    QLabel* labelMetricSharpness = nullptr;
-    QLabel* labelMetricPosition = nullptr;
-    QLabel* labelMetricBest = nullptr;
-    QLabel* labelMetricTarget = nullptr;
-    QLabel* labelMetricSamples = nullptr;
+    QLabel* labelFocusResultTitle = nullptr;
+    QLabel* labelFocusResultDetail = nullptr;
+    QLabel* labelFocusPositionSummary = nullptr;
+    QLabel* labelFocusTargetSummary = nullptr;
+    QLabel* labelFocusSampleSummary = nullptr;
+    QLabel* labelFocusSharpnessSummary = nullptr;
     QProgressBar* progressFocusStage = nullptr;
-    SharpnessTrendWidget* sharpnessTrendWidget = nullptr;
 
     cv::Mat frame;
     QImage currentImage;

@@ -90,21 +90,82 @@ QLabel {
     color: #1f2937;
 }
 
-QLabel[role="metricTitle"] {
-    color: #64748b;
+QGroupBox#group_status {
+    border-color: #bfdbfe;
+}
+
+QLabel[role="focusResultTitle"] {
+    border-radius: 8px;
+    padding: 12px 10px;
+    font-size: 18pt;
+    font-weight: 800;
+    background: #e8eef7;
+    color: #344256;
+}
+
+QLabel[role="focusResultTitle"][resultState="ok"] {
+    background: #dcfce7;
+    color: #166534;
+}
+
+QLabel[resultState="ok"] {
+    background: #dcfce7;
+    color: #166534;
+}
+
+QLabel[role="focusResultTitle"][resultState="active"] {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+QLabel[resultState="active"] {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+QLabel[role="focusResultTitle"][resultState="warn"] {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+QLabel[resultState="warn"] {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+QLabel[role="focusResultTitle"][resultState="error"] {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+QLabel[resultState="error"] {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+QLabel[role="focusResultTitle"][resultState="neutral"] {
+    background: #e8eef7;
+    color: #344256;
+}
+
+QLabel[resultState="neutral"] {
+    background: #e8eef7;
+    color: #344256;
+}
+
+QLabel[role="focusResultDetail"] {
+    color: #475569;
     font-size: 9pt;
+    line-height: 140%;
 }
 
-QLabel[role="metricValue"] {
-    color: #111827;
-    font-size: 13pt;
-    font-weight: 700;
-}
-
-QFrame[role="metric"] {
+QLabel[role="focusSummary"] {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 6px;
+    color: #334155;
+    padding: 7px 8px;
+    font-weight: 500;
 }
 
 QPushButton {

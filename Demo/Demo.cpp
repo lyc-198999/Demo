@@ -1,14 +1,11 @@
 ﻿#include "Demo.h"
-#include "SharpnessTrendWidget.h"
 #include "ui_Demo.h"
 
 #include <algorithm>
-#include <iterator>
 #include <QDateTime>
 #include <QFile>
 #include <QFormLayout>
 #include <QFrame>
-#include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -176,11 +173,58 @@ void MainWindow::initializeModernUi()
 
     ui->group_image->setTitle(QStringLiteral("实时图像"));
     ui->group_log->setTitle(QStringLiteral("事件日志"));
-    ui->group_status->setTitle(QStringLiteral("状态摘要"));
+    ui->group_status->setTitle(QStringLiteral("对焦结果"));
     ui->group_mode->setTitle(QStringLiteral("模式"));
     ui->group_manual->setTitle(QStringLiteral("手动控制"));
     ui->group_serial->setTitle(QStringLiteral("串口连接"));
     ui->group_motor_params->setTitle(QStringLiteral("电机参数"));
+
+    DemoWindowDetail::ClearLayoutItems(ui->formLayoutStatus);
+    ui->label_sharpnessTitle->hide();
+    ui->label_sharpness->hide();
+    ui->label_positionTitle->hide();
+    ui->label_position->hide();
+    ui->label_statusTitle->hide();
+    ui->label_status->hide();
+
+    labelFocusResultTitle = new QLabel(QStringLiteral("手动待命"), ui->group_status);
+    labelFocusResultTitle->setAlignment(Qt::AlignCenter);
+    labelFocusResultTitle->setWordWrap(true);
+    labelFocusResultTitle->setProperty("role", "focusResultTitle");
+    labelFocusResultTitle->setProperty("resultState", "neutral");
+
+    labelFocusResultDetail = new QLabel(QStringLiteral("当前为手动模式，自动对焦未运行。"), ui->group_status);
+    labelFocusResultDetail->setAlignment(Qt::AlignCenter);
+    labelFocusResultDetail->setWordWrap(true);
+    labelFocusResultDetail->setProperty("role", "focusResultDetail");
+
+    progressFocusStage = new QProgressBar(ui->group_status);
+    progressFocusStage->setRange(0, 100);
+    progressFocusStage->setValue(0);
+    progressFocusStage->setTextVisible(true);
+    progressFocusStage->setFormat(QStringLiteral("手动待命"));
+
+    const auto createFocusSummary = [this](const QString& text) {
+        auto* label = new QLabel(text, ui->group_status);
+        label->setWordWrap(true);
+        label->setProperty("role", "focusSummary");
+        return label;
+    };
+
+    labelFocusPositionSummary = createFocusSummary(QStringLiteral("当前位置：--"));
+    labelFocusTargetSummary = createFocusSummary(QStringLiteral("目标位置：--"));
+    labelFocusSampleSummary = createFocusSummary(QStringLiteral("采样数：0"));
+    labelFocusSharpnessSummary = createFocusSummary(QStringLiteral("清晰度：完成后显示"));
+
+    ui->formLayoutStatus->setContentsMargins(8, 8, 8, 8);
+    ui->formLayoutStatus->setSpacing(8);
+    ui->formLayoutStatus->addRow(labelFocusResultTitle);
+    ui->formLayoutStatus->addRow(labelFocusResultDetail);
+    ui->formLayoutStatus->addRow(progressFocusStage);
+    ui->formLayoutStatus->addRow(labelFocusPositionSummary);
+    ui->formLayoutStatus->addRow(labelFocusTargetSummary);
+    ui->formLayoutStatus->addRow(labelFocusSampleSummary);
+    ui->formLayoutStatus->addRow(labelFocusSharpnessSummary);
 
     ui->group_log->setCheckable(true);
     ui->group_log->setChecked(true);
@@ -207,7 +251,7 @@ void MainWindow::initializeModernUi()
 
     auto* titleLabel = new QLabel(QStringLiteral("自动对焦系统"), titleBlock);
     titleLabel->setObjectName("appTitle");
-    auto* subtitleLabel = new QLabel(QStringLiteral("实时图像采集 / 电机控制 / 自动对焦监控"), titleBlock);
+    auto* subtitleLabel = new QLabel(QStringLiteral("实时图像采集 / 电机控制 / 对焦结果反馈"), titleBlock);
     subtitleLabel->setProperty("role", "subtitle");
     titleLayout->addWidget(titleLabel);
     titleLayout->addWidget(subtitleLabel);
@@ -240,50 +284,7 @@ void MainWindow::initializeModernUi()
     auto* workspaceLayout = new QVBoxLayout(workspace);
     workspaceLayout->setContentsMargins(0, 0, 0, 0);
     workspaceLayout->setSpacing(12);
-    workspaceLayout->addWidget(ui->group_image, 3);
-
-    auto* monitorGroup = new QGroupBox(QStringLiteral("对焦监控"), workspace);
-    monitorGroup->setObjectName("group_monitor");
-    auto* monitorLayout = new QGridLayout(monitorGroup);
-    monitorLayout->setContentsMargins(12, 14, 12, 12);
-    monitorLayout->setHorizontalSpacing(10);
-    monitorLayout->setVerticalSpacing(10);
-
-    const auto createMetric = [monitorGroup](const QString& title, QLabel*& valueLabel) {
-        auto* frame = new QFrame(monitorGroup);
-        frame->setProperty("role", "metric");
-        auto* layout = new QVBoxLayout(frame);
-        layout->setContentsMargins(10, 8, 10, 8);
-        layout->setSpacing(2);
-
-        auto* titleLabel = new QLabel(title, frame);
-        titleLabel->setProperty("role", "metricTitle");
-        valueLabel = new QLabel(QStringLiteral("--"), frame);
-        valueLabel->setProperty("role", "metricValue");
-        valueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-
-        layout->addWidget(titleLabel);
-        layout->addWidget(valueLabel);
-        return frame;
-    };
-
-    monitorLayout->addWidget(createMetric(QStringLiteral("当前清晰度"), labelMetricSharpness), 0, 0);
-    monitorLayout->addWidget(createMetric(QStringLiteral("当前位置"), labelMetricPosition), 0, 1);
-    monitorLayout->addWidget(createMetric(QStringLiteral("采样峰值"), labelMetricBest), 0, 2);
-    monitorLayout->addWidget(createMetric(QStringLiteral("目标位置"), labelMetricTarget), 0, 3);
-    monitorLayout->addWidget(createMetric(QStringLiteral("采样数"), labelMetricSamples), 0, 4);
-
-    progressFocusStage = new QProgressBar(monitorGroup);
-    progressFocusStage->setRange(0, 100);
-    progressFocusStage->setValue(0);
-    progressFocusStage->setTextVisible(true);
-    progressFocusStage->setFormat(QStringLiteral("待机"));
-    monitorLayout->addWidget(progressFocusStage, 1, 0, 1, 5);
-
-    sharpnessTrendWidget = new SharpnessTrendWidget(monitorGroup);
-    monitorLayout->addWidget(sharpnessTrendWidget, 2, 0, 1, 5);
-
-    workspaceLayout->addWidget(monitorGroup, 1);
+    workspaceLayout->addWidget(ui->group_image, 1);
 
     ui->gridLayoutRoot->addWidget(topStatusBar, 0, 0, 1, 2);
     ui->gridLayoutRoot->addWidget(workspace, 1, 0, 1, 1);
@@ -470,7 +471,7 @@ void MainWindow::updateStatusDisplay()
     updateModernDashboard();
 }
 
-// 用法：同步顶部状态条、监控摘要和清晰度曲线标记。
+// 用法：同步顶部状态条和右侧对焦结果卡。
 void MainWindow::updateModernDashboard()
 {
     if (labelModeBadge == nullptr)
@@ -527,66 +528,137 @@ void MainWindow::updateModernDashboard()
 
     setStatusBadge(labelFocusStageBadge, focusStageText(), focusStageBadgeState());
 
-    if (labelMetricSharpness != nullptr)
-    {
-        labelMetricSharpness->setText(cameraOnline && frameFormatValid
-                                          ? QString::number(currentSharpness, 'f', 2)
-                                          : QStringLiteral("--"));
-    }
+    QString resultTitle = QStringLiteral("等待设备");
+    QString resultDetail;
+    QString resultState = QStringLiteral("warn");
 
-    if (labelMetricPosition != nullptr)
+    if (emergencyStopActive)
     {
-        labelMetricPosition->setText(QStringLiteral("%1 脉冲").arg(currentPosition));
-        labelMetricPosition->setToolTip(QStringLiteral("%1 圈")
-                                            .arg(static_cast<double>(currentPosition) /
-                                                     DemoWindowDetail::kPulsesPerTurn,
-                                                 0,
-                                                 'f',
-                                                 3));
+        resultTitle = QStringLiteral("急停中");
+        resultDetail = QStringLiteral("已停止移动，解除急停后可继续操作。");
+        resultState = QStringLiteral("error");
     }
-
-    if (labelMetricBest != nullptr)
+    else if (isManualMode)
     {
-        if (autoFocusSharpnessValues.empty())
+        resultTitle = QStringLiteral("手动待命");
+        resultDetail = QStringLiteral("当前为手动模式，自动对焦未运行。");
+        resultState = QStringLiteral("neutral");
+    }
+    else if (!cameraOnline || !serialConnected)
+    {
+        QStringList missingParts;
+        if (!cameraOnline)
         {
-            labelMetricBest->setText(QStringLiteral("--"));
+            missingParts << QStringLiteral("相机未连接");
         }
-        else
+        if (!serialConnected)
         {
-            const auto bestIt = std::max_element(autoFocusSharpnessValues.cbegin(),
-                                                 autoFocusSharpnessValues.cend());
-            const size_t bestIndex = static_cast<size_t>(
-                std::distance(autoFocusSharpnessValues.cbegin(), bestIt));
-            const double bestPosition = bestIndex < autoFocusPositions.size()
-                                            ? autoFocusPositions[bestIndex]
-                                            : 0.0;
-            labelMetricBest->setText(QStringLiteral("%1 @ %2")
-                                         .arg(*bestIt, 0, 'f', 2)
-                                         .arg(bestPosition, 0, 'f', 0));
+            missingParts << QStringLiteral("串口未连接");
         }
+
+        resultTitle = QStringLiteral("等待设备");
+        resultDetail = missingParts.join(QStringLiteral("，"));
+        resultState = QStringLiteral("warn");
+    }
+    else if (!frameFormatValid)
+    {
+        resultTitle = QStringLiteral("图像异常");
+        resultDetail = QStringLiteral("当前图像帧格式无法用于对焦。");
+        resultState = QStringLiteral("error");
+    }
+    else if (!autoFocusBlockReason.isEmpty())
+    {
+        resultTitle = QStringLiteral("对焦阻塞");
+        resultDetail = autoFocusBlockReason;
+        resultState = QStringLiteral("warn");
+    }
+    else if (autoFocusFinished)
+    {
+        resultTitle = QStringLiteral("对焦成功");
+        resultDetail = QStringLiteral("已完成最终回焦和结果复核。");
+        resultState = QStringLiteral("ok");
+    }
+    else if (autoFocusMovePending || !autoFocusPositions.empty() || autoFocusHasFinalTarget)
+    {
+        resultTitle = QStringLiteral("对焦中");
+        resultDetail = focusStageText();
+        resultState = QStringLiteral("active");
+    }
+    else
+    {
+        resultTitle = QStringLiteral("等待采样");
+        resultDetail = QStringLiteral("设备已就绪，等待自动对焦采样。");
+        resultState = QStringLiteral("neutral");
     }
 
-    if (labelMetricTarget != nullptr)
+    if (labelFocusResultTitle != nullptr)
+    {
+        labelFocusResultTitle->setText(resultTitle);
+        labelFocusResultTitle->setProperty("resultState", resultState);
+        labelFocusResultTitle->style()->unpolish(labelFocusResultTitle);
+        labelFocusResultTitle->style()->polish(labelFocusResultTitle);
+        labelFocusResultTitle->update();
+    }
+
+    if (labelFocusResultDetail != nullptr)
+    {
+        labelFocusResultDetail->setText(resultDetail);
+    }
+
+    if (labelFocusPositionSummary != nullptr)
+    {
+        labelFocusPositionSummary->setText(QStringLiteral("当前位置：%1 脉冲（%2 圈）")
+                                               .arg(currentPosition)
+                                               .arg(static_cast<double>(currentPosition) /
+                                                        DemoWindowDetail::kPulsesPerTurn,
+                                                    0,
+                                                    'f',
+                                                    3));
+    }
+
+    if (labelFocusTargetSummary != nullptr)
     {
         if (autoFocusHasFinalTarget)
         {
-            labelMetricTarget->setText(QStringLiteral("%1 脉冲")
-                                           .arg(autoFocusFinalTargetPosition, 0, 'f', 0));
+            labelFocusTargetSummary->setText(QStringLiteral("目标位置：%1 脉冲")
+                                                 .arg(autoFocusFinalTargetPosition, 0, 'f', 0));
         }
-        else if (autoFocusHasEstimatedPosition)
+        else if (autoFocusHasEstimatedPosition && !isManualMode)
         {
-            labelMetricTarget->setText(QStringLiteral("估计 %1")
-                                           .arg(autoFocusEstimatedPosition, 0, 'f', 0));
+            labelFocusTargetSummary->setText(QStringLiteral("估计位置：%1 脉冲")
+                                                 .arg(autoFocusEstimatedPosition, 0, 'f', 0));
         }
         else
         {
-            labelMetricTarget->setText(QStringLiteral("--"));
+            labelFocusTargetSummary->setText(QStringLiteral("目标位置：--"));
         }
     }
 
-    if (labelMetricSamples != nullptr)
+    if (labelFocusSampleSummary != nullptr)
     {
-        labelMetricSamples->setText(QString::number(autoFocusPositions.size()));
+        labelFocusSampleSummary->setText(QStringLiteral("采样数：%1")
+                                             .arg(autoFocusPositions.size()));
+    }
+
+    if (labelFocusSharpnessSummary != nullptr)
+    {
+        if (autoFocusFinished && !autoFocusSharpnessValues.empty())
+        {
+            const auto bestIt = std::max_element(autoFocusSharpnessValues.cbegin(),
+                                                 autoFocusSharpnessValues.cend());
+            labelFocusSharpnessSummary->setText(QStringLiteral("清晰度：最终 %1 / 峰值 %2")
+                                                    .arg(currentSharpness, 0, 'f', 2)
+                                                    .arg(*bestIt, 0, 'f', 2));
+        }
+        else if (autoFocusFinished)
+        {
+            labelFocusSharpnessSummary->setText(QStringLiteral("清晰度：最终 %1")
+                                                    .arg(currentSharpness, 0, 'f', 2));
+        }
+        else
+        {
+            labelFocusSharpnessSummary->setText(QStringLiteral("清晰度：完成后显示"));
+        }
     }
 
     if (progressFocusStage != nullptr)
@@ -623,14 +695,6 @@ void MainWindow::updateModernDashboard()
 
         progressFocusStage->setValue(progress);
         progressFocusStage->setFormat(focusStageText());
-    }
-
-    if (sharpnessTrendWidget != nullptr)
-    {
-        sharpnessTrendWidget->setTargetMarkers(autoFocusHasFinalTarget,
-                                               autoFocusFinalTargetPosition,
-                                               autoFocusHasEstimatedPosition,
-                                               autoFocusEstimatedPosition);
     }
 }
 
