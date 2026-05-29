@@ -642,7 +642,14 @@ void MainWindow::updateModernDashboard()
 
     if (labelFocusSharpnessSummary != nullptr)
     {
-        if (autoFocusFinished && !autoFocusSharpnessValues.empty())
+        if (isManualMode)
+        {
+            labelFocusSharpnessSummary->setText(cameraOnline && frameFormatValid
+                                                    ? QStringLiteral("清晰度：当前 %1")
+                                                          .arg(currentSharpness, 0, 'f', 2)
+                                                    : QStringLiteral("清晰度：等待图像"));
+        }
+        else if (autoFocusFinished && !autoFocusSharpnessValues.empty())
         {
             const auto bestIt = std::max_element(autoFocusSharpnessValues.cbegin(),
                                                  autoFocusSharpnessValues.cend());
