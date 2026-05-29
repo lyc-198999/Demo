@@ -11,6 +11,10 @@
 #include <opencv2/opencv.hpp>
 #include <vector>
 
+class QLabel;
+class QProgressBar;
+class SharpnessTrendWidget;
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class DemoClass; }
 QT_END_NAMESPACE
@@ -42,18 +46,38 @@ private slots:
     void toggleEmergencyStop(bool active);
 
 private:
+    enum class LogLevel
+    {
+        Info,
+        Success,
+        Warning,
+        Error
+    };
+
     // 用法：窗口缩放时刷新图像显示。
     void resizeEvent(QResizeEvent* event) override;
+    // 用法：创建现代化仪器布局、监控看板和全局样式。
+    void initializeModernUi();
     // 用法：显示当前相机帧。
     void showFrame(const cv::Mat& frame);
     // 用法：按控件大小刷新图像。
     void refreshDisplayedImage();
     // 用法：刷新界面状态文字。
     void updateStatusDisplay();
+    // 用法：同步顶部状态条、监控摘要和清晰度曲线标记。
+    void updateModernDashboard();
+    // 用法：返回当前自动对焦阶段描述。
+    QString focusStageText() const;
+    // 用法：返回当前自动对焦阶段对应的 UI 状态色。
+    QString focusStageBadgeState() const;
+    // 用法：刷新状态徽标文字和颜色。
+    void setStatusBadge(QLabel* label, const QString& text, const QString& state);
+    // 用法：根据日志内容和显式等级确定最终显示等级。
+    LogLevel effectiveLogLevel(const QString& message, LogLevel level) const;
     // 用法：同步驱动器状态到界面。
     bool synchronizeMotorStatus(bool logOnFailure = true);
     // 用法：追加日志文本。
-    void appendLog(const QString& message);
+    void appendLog(const QString& message, LogLevel level = LogLevel::Info);
     // 用法：发送手动相对移动。
     void handleManualMove(double delta);
     // 用法：推进自动对焦状态机。
@@ -72,6 +96,19 @@ private:
     Ui::DemoClass* ui;
     QTimer* timer;
     MotorSerialPort motorSerial;
+    QLabel* labelModeBadge = nullptr;
+    QLabel* labelCameraBadge = nullptr;
+    QLabel* labelSerialBadge = nullptr;
+    QLabel* labelMotorBadge = nullptr;
+    QLabel* labelEmergencyBadge = nullptr;
+    QLabel* labelFocusStageBadge = nullptr;
+    QLabel* labelMetricSharpness = nullptr;
+    QLabel* labelMetricPosition = nullptr;
+    QLabel* labelMetricBest = nullptr;
+    QLabel* labelMetricTarget = nullptr;
+    QLabel* labelMetricSamples = nullptr;
+    QProgressBar* progressFocusStage = nullptr;
+    SharpnessTrendWidget* sharpnessTrendWidget = nullptr;
 
     cv::Mat frame;
     QImage currentImage;

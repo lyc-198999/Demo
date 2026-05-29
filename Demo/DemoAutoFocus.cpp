@@ -1,5 +1,6 @@
 ﻿#include "Demo.h"
 #include "GaussianAutoFocus.h"
+#include "SharpnessTrendWidget.h"
 #include "ui_Demo.h"
 
 #include <algorithm>
@@ -644,6 +645,11 @@ void MainWindow::resetAutoFocusState(bool logReset)
     autoFocusEstimatedPosition = 0.0;
     autoFocusFinalTargetPosition = 0.0;
     autoFocusBlockReason.clear();
+    if (sharpnessTrendWidget != nullptr)
+    {
+        sharpnessTrendWidget->clearSamples();
+        sharpnessTrendWidget->setTargetMarkers(false, 0.0, false, 0.0);
+    }
 
     if (logReset && hadState)
     {

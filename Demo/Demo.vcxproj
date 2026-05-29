@@ -104,6 +104,7 @@
     <QtMoc Include="Demo.h" />
     <ClInclude Include="GaussianAutoFocus.h" />
     <ClInclude Include="Sharpness.h" />
+    <ClInclude Include="SharpnessTrendWidget.h" />
     <ClInclude Include="SerialPort.h" />
     <ClCompile Include="Demo.cpp" />
     <ClCompile Include="DemoAutoFocus.cpp" />
@@ -113,8 +114,10 @@
     <ClCompile Include="ImOpenCV.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Sharpness.cpp" />
+    <ClCompile Include="SharpnessTrendWidget.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="ModernTheme.qss" />
     <None Include="..\README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

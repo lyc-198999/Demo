@@ -1,5 +1,6 @@
 ﻿#include "Demo.h"
 #include "Sharpness.h"
+#include "SharpnessTrendWidget.h"
 #include "ui_Demo.h"
 
 #include <algorithm>
@@ -102,6 +103,10 @@ void MainWindow::updateFrame()
     cameraOnline = true;
     showFrame(frame);
     currentSharpness = frameFormatValid ? Sharpness::Calculate(frame) : 0.0;
+    if (frameFormatValid && sharpnessTrendWidget != nullptr)
+    {
+        sharpnessTrendWidget->appendSample(static_cast<double>(currentPosition), currentSharpness);
+    }
     updateStatusDisplay();
     processAutoFocus();
 }

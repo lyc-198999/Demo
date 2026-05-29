@@ -1,4 +1,5 @@
-﻿<RCC>
+<RCC>
     <qresource prefix="Demo">
+        <file>ModernTheme.qss</file>
     </qresource>
 </RCC>
