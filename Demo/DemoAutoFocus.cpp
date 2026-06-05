@@ -771,7 +771,6 @@ bool MainWindow::sendAutoFocusMove(double deltaPulses, const QString& reason)
             appendLog(QString("自动对焦发送移动前使能电机失败：%1").arg(enableResult.message));
             return false;
         }
-
         motorEnabled = true;
         appendLog("自动对焦发送移动前已重新使能电机。");
     }
