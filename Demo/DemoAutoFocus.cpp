@@ -15,8 +15,9 @@ constexpr int kAutoFocusMoveSettleMs = 700;
 constexpr size_t kAutoFocusMinFitSamples = 6;
 constexpr size_t kAutoFocusMaxSamples = 100;
 constexpr size_t kAutoFocusDirectionProbeSamples = 5;
-constexpr size_t kAutoFocusInitialProbeSamples = 32;
+constexpr size_t kAutoFocusDynamicThresholdSamples = 3;
 constexpr size_t kAutoFocusPostPeakSamples = 3;
+constexpr size_t kAutoFocusHillClimbStopDrops = 3;
 constexpr double kAutoFocusDropTolerance = 0.6;
 constexpr double kAutoFocusDropRatio = 0.01;
 constexpr double kAutoFocusVerifySharpnessRatio = 0.95;
@@ -42,6 +43,28 @@ int CountTailSharpnessDrops(const std::vector<double>& values)
     for (size_t i = values.size(); i > 1; --i)
     {
         if (!IsSignificantSharpnessDrop(values[i - 2], values[i - 1]))
+        {
+            break;
+        }
+
+        ++drops;
+    }
+
+    return drops;
+}
+
+// 用法：统计爬山搜索阶段尾部连续数值下降次数。
+int CountTailRawSharpnessDropsFrom(const std::vector<double>& values, size_t startIndex)
+{
+    int drops = 0;
+    if (values.size() <= startIndex + 1)
+    {
+        return drops;
+    }
+
+    for (size_t i = values.size(); i > startIndex + 1; --i)
+    {
+        if (!(values[i - 1] < values[i - 2]))
         {
             break;
         }
@@ -87,6 +110,33 @@ bool HasAnySharpnessRise(const std::vector<double>& values)
     }
 
     return false;
+}
+
+// 用法：根据最近 3 次清晰度评价值计算动态阈值。
+double RecentDynamicSharpnessThreshold(const std::vector<double>& values)
+{
+    if (values.size() < kAutoFocusDynamicThresholdSamples)
+    {
+        return 0.0;
+    }
+
+    const size_t startIndex = values.size() - kAutoFocusDynamicThresholdSamples;
+    double mean = 0.0;
+    for (size_t i = startIndex; i < values.size(); ++i)
+    {
+        mean += values[i];
+    }
+    mean /= static_cast<double>(kAutoFocusDynamicThresholdSamples);
+
+    double variance = 0.0;
+    for (size_t i = startIndex; i < values.size(); ++i)
+    {
+        const double delta = values[i] - mean;
+        variance += delta * delta;
+    }
+    variance /= static_cast<double>(kAutoFocusDynamicThresholdSamples);
+
+    return std::abs(mean - variance);
 }
 
 // 用法：判断指定候选峰值前是否已经出现过累计有效上升。
@@ -155,6 +205,26 @@ bool TryFindConfirmedPeakIndex(const std::vector<double>& values, size_t& peakIn
     return true;
 }
 
+// 用法：初始 5 点定方向后，爬山阶段连续三次下降时停止搜索。
+bool TryFindHillClimbStopPeakIndex(const std::vector<double>& values,
+                                   size_t hillClimbStartIndex,
+                                   size_t& peakIndex)
+{
+    if (values.size() <= hillClimbStartIndex + kAutoFocusHillClimbStopDrops)
+    {
+        return false;
+    }
+
+    if (CountTailRawSharpnessDropsFrom(values, hillClimbStartIndex) <
+        static_cast<int>(kAutoFocusHillClimbStopDrops))
+    {
+        return false;
+    }
+
+    peakIndex = BestSharpnessIndex(values);
+    return true;
+}
+
 // 用法：判断高斯拟合中心是否落在采样范围内且没有偏离采样峰值过远。
 bool IsUsableGaussianCenter(double center,
                             double minPosition,
@@ -176,40 +246,15 @@ bool IsUsableGaussianCenter(double center,
     return std::abs(center - bestPosition) <= scanStep * 1.5;
 }
 
-// 用法：判断当前扫描是否已经接近焦面，需要切换为小步长采样。
-bool ShouldUseFineAutoFocusStep(const std::vector<double>& values,
-                                size_t bestIndex,
-                                int postPeakSamples)
-{
-    const bool hasRiseBeforeBest = HasRiseBeforeIndex(values, bestIndex);
-    if (!hasRiseBeforeBest)
-    {
-        return false;
-    }
-
-    if (postPeakSamples > 0)
-    {
-        return true;
-    }
-
-    if (values.size() < kAutoFocusMinFitSamples || bestIndex + 1 != values.size())
-    {
-        return false;
-    }
-
-    const double previous = values[values.size() - 2];
-    const double current = values.back();
-    const double plateauThreshold = std::max(kAutoFocusDropTolerance * 0.5,
-                                             std::abs(current) * kAutoFocusDropRatio * 0.5);
-    return std::abs(current - previous) <= plateauThreshold;
-}
-
 // 用法：计算采样位置和清晰度的线性斜率，用于初始扫描方向判断。
 double LinearSharpnessSlope(const std::vector<double>& positions,
                             const std::vector<double>& values,
+                            size_t startIndex,
                             size_t sampleCount)
 {
-    if (positions.size() < sampleCount || values.size() < sampleCount || sampleCount < 2)
+    if (positions.size() < startIndex + sampleCount ||
+        values.size() < startIndex + sampleCount ||
+        sampleCount < 2)
     {
         return 0.0;
     }
@@ -218,8 +263,9 @@ double LinearSharpnessSlope(const std::vector<double>& positions,
     double meanSharpness = 0.0;
     for (size_t i = 0; i < sampleCount; ++i)
     {
-        meanPosition += positions[i];
-        meanSharpness += values[i];
+        const size_t index = startIndex + i;
+        meanPosition += positions[index];
+        meanSharpness += values[index];
     }
     meanPosition /= static_cast<double>(sampleCount);
     meanSharpness /= static_cast<double>(sampleCount);
@@ -228,8 +274,9 @@ double LinearSharpnessSlope(const std::vector<double>& positions,
     double denominator = 0.0;
     for (size_t i = 0; i < sampleCount; ++i)
     {
-        const double dx = positions[i] - meanPosition;
-        numerator += dx * (values[i] - meanSharpness);
+        const size_t index = startIndex + i;
+        const double dx = positions[index] - meanPosition;
+        numerator += dx * (values[index] - meanSharpness);
         denominator += dx * dx;
     }
 
@@ -241,42 +288,59 @@ double LinearSharpnessSlope(const std::vector<double>& positions,
     return numerator / denominator;
 }
 
-// 用法：判断启动方向是否没有形成有效上升，需要丢弃单侧探测并反向扫描。
-bool ShouldReverseInitialScan(const std::vector<double>& positions,
-                              const std::vector<double>& values,
-                              size_t bestIndex,
-                              int tailDrops,
-                              int postPeakSamples,
-                              bool hasSeenRise)
+// 用法：判断最近 3 点斜率是否同时满足固定阈值和动态阈值。
+bool RecentSlopePassesFineStepThresholds(const std::vector<double>& positions,
+                                         const std::vector<double>& values)
 {
-    const size_t sampleCount = values.size();
-    if (sampleCount < 2 || hasSeenRise)
+    if (positions.size() < kAutoFocusDynamicThresholdSamples ||
+        values.size() < kAutoFocusDynamicThresholdSamples)
     {
         return false;
     }
 
-    if (sampleCount == kAutoFocusDirectionProbeSamples)
+    const size_t startIndex = values.size() - kAutoFocusDynamicThresholdSamples;
+    const double positionSpan = std::abs(positions.back() - positions[startIndex]);
+    if (positionSpan < 1e-12)
     {
-        const double positionRange = positions[kAutoFocusDirectionProbeSamples - 1] - positions.front();
-        const double expectedChange =
-            LinearSharpnessSlope(positions, values, kAutoFocusDirectionProbeSamples) * positionRange;
-        const double threshold = std::max(kAutoFocusDropTolerance,
-                                          std::abs(values.front()) * kAutoFocusDropRatio);
-        return expectedChange < -threshold;
+        return false;
     }
 
-    if (tailDrops >= 2)
+    const double slope = std::abs(LinearSharpnessSlope(positions,
+                                                       values,
+                                                       startIndex,
+                                                       kAutoFocusDynamicThresholdSamples));
+    const double meanBasedFixedThreshold =
+        std::max(kAutoFocusDropTolerance, std::abs(values.back()) * kAutoFocusDropRatio);
+    const double dynamicThreshold = RecentDynamicSharpnessThreshold(values);
+    const double fixedSlopeThreshold = meanBasedFixedThreshold / positionSpan;
+    const double dynamicSlopeThreshold = dynamicThreshold / positionSpan;
+
+    return slope > fixedSlopeThreshold && slope > dynamicSlopeThreshold;
+}
+
+// 用法：判断当前扫描是否已经接近焦面，需要切换为小步长采样。
+bool ShouldUseFineAutoFocusStep(const std::vector<double>& positions,
+                                const std::vector<double>& values,
+                                size_t bestIndex,
+                                int postPeakSamples)
+{
+    const bool hasRiseBeforeBest = HasRiseBeforeIndex(values, bestIndex);
+    if (!hasRiseBeforeBest)
+    {
+        return false;
+    }
+
+    if (!RecentSlopePassesFineStepThresholds(positions, values))
+    {
+        return false;
+    }
+
+    if (postPeakSamples > 0)
     {
         return true;
     }
 
-    if (bestIndex == 0 &&
-        postPeakSamples >= static_cast<int>(kAutoFocusPostPeakSamples))
-    {
-        return true;
-    }
-
-    return sampleCount >= kAutoFocusInitialProbeSamples;
+    return values.size() >= kAutoFocusMinFitSamples && bestIndex + 1 == values.size();
 }
 
 }
@@ -353,6 +417,15 @@ void MainWindow::processAutoFocus()
         bestIndex = confirmedPeakIndex;
         autoFocusPeakConfirmed = true;
     }
+    else if (autoFocusInitialDirectionResolved &&
+             DemoAutoFocusDetail::TryFindHillClimbStopPeakIndex(autoFocusSharpnessValues,
+                                                                 autoFocusHillClimbStartIndex,
+                                                                 confirmedPeakIndex))
+    {
+        bestIndex = confirmedPeakIndex;
+        autoFocusPeakConfirmed = true;
+        appendLog("爬山搜索检测到连续三次下降，停止搜索并回到历史峰值。");
+    }
 
     const double bestPosition = autoFocusPositions[bestIndex];
     const double bestSharpness = autoFocusSharpnessValues[bestIndex];
@@ -395,32 +468,32 @@ void MainWindow::processAutoFocus()
         autoFocusHasFinalTarget = false;
     }
 
-    const int tailDrops = DemoAutoFocusDetail::CountTailSharpnessDrops(autoFocusSharpnessValues);
-    const bool hasSeenRise = DemoAutoFocusDetail::HasAnySharpnessRise(autoFocusSharpnessValues);
-    if (!autoFocusPeakConfirmed && !autoFocusDirectionReversed &&
-        DemoAutoFocusDetail::ShouldReverseInitialScan(autoFocusPositions,
-                                                      autoFocusSharpnessValues,
-                                                      bestIndex,
-                                                      tailDrops,
-                                                      postPeakSamples,
-                                                      hasSeenRise))
+    if (!autoFocusInitialDirectionResolved)
     {
-        autoFocusScanDirection = -autoFocusScanDirection;
-        autoFocusFineProbeDirection = -autoFocusScanDirection;
-        autoFocusDirectionReversed = true;
-        autoFocusFineScanActive = false;
-        autoFocusPositions.clear();
-        autoFocusSharpnessValues.clear();
-        appendLog("初始扫描方向未检测到有效上升，已丢弃单侧探测并切换为反方向扫描。");
-
-        if (!sendAutoFocusMove(static_cast<double>(autoFocusScanDirection) *
-                                   static_cast<double>(autoFocusScanStep),
-                               "反向扫描"))
+        if (sampleCount < DemoAutoFocusDetail::kAutoFocusDirectionProbeSamples)
         {
-            autoFocusFinished = true;
-            appendLog("自动对焦已终止。");
+            if (!sendAutoFocusMove(static_cast<double>(autoFocusScanDirection) *
+                                       static_cast<double>(autoFocusScanStep),
+                                   "初始方向探测"))
+            {
+                autoFocusFinished = true;
+                appendLog("自动对焦已终止。");
+            }
+            return;
         }
-        return;
+
+        const double initialSlope =
+            DemoAutoFocusDetail::LinearSharpnessSlope(autoFocusPositions,
+                                                      autoFocusSharpnessValues,
+                                                      0,
+                                                      DemoAutoFocusDetail::kAutoFocusDirectionProbeSamples);
+        autoFocusScanDirection = initialSlope < 0.0 ? -1 : 1;
+        autoFocusFineProbeDirection = -autoFocusScanDirection;
+        autoFocusInitialDirectionResolved = true;
+        autoFocusHillClimbStartIndex = autoFocusSharpnessValues.size();
+        appendLog(QString("初始方向探测完成：5点线性斜率=%1，后续扫描方向=%2。")
+                      .arg(initialSlope, 0, 'f', 8)
+                      .arg(autoFocusScanDirection > 0 ? "前进" : "后退"));
     }
 
     if (!autoFocusPeakConfirmed)
@@ -432,6 +505,8 @@ void MainWindow::processAutoFocus()
             return;
         }
 
+        const int tailDrops = DemoAutoFocusDetail::CountTailSharpnessDrops(autoFocusSharpnessValues);
+        const bool hasSeenRise = DemoAutoFocusDetail::HasAnySharpnessRise(autoFocusSharpnessValues);
         if (tailDrops == 0 && sampleCount >= 2 &&
             DemoAutoFocusDetail::IsSignificantSharpnessRise(autoFocusSharpnessValues[sampleCount - 2],
                                                             autoFocusSharpnessValues[sampleCount - 1]))
@@ -445,7 +520,8 @@ void MainWindow::processAutoFocus()
 
         const bool useFineStep =
             autoFocusFineScanActive ||
-            DemoAutoFocusDetail::ShouldUseFineAutoFocusStep(autoFocusSharpnessValues,
+            DemoAutoFocusDetail::ShouldUseFineAutoFocusStep(autoFocusPositions,
+                                                            autoFocusSharpnessValues,
                                                             bestIndex,
                                                             postPeakSamples);
         if (useFineStep && !autoFocusFineScanActive)
@@ -635,12 +711,13 @@ void MainWindow::resetAutoFocusState(bool logReset)
     autoFocusFinalMoveSent = false;
     autoFocusEnableRetryDone = false;
     autoFocusHasEstimatedPosition = false;
-    autoFocusDirectionReversed = false;
+    autoFocusInitialDirectionResolved = false;
     autoFocusPeakConfirmed = false;
     autoFocusFineScanActive = false;
     autoFocusHasFinalTarget = false;
     autoFocusScanDirection = 1;
     autoFocusFineProbeDirection = -autoFocusScanDirection;
+    autoFocusHillClimbStartIndex = 0;
     autoFocusEstimatedPosition = 0.0;
     autoFocusFinalTargetPosition = 0.0;
     autoFocusBlockReason.clear();

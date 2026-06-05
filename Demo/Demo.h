@@ -138,12 +138,13 @@ private:
     bool autoFocusFinalMoveSent = false;
     bool autoFocusEnableRetryDone = false;
     bool autoFocusHasEstimatedPosition = false;
-    bool autoFocusDirectionReversed = false;
+    bool autoFocusInitialDirectionResolved = false;
     bool autoFocusPeakConfirmed = false;
     bool autoFocusFineScanActive = false;
     bool autoFocusHasFinalTarget = false;
     int autoFocusScanDirection = 1;
     int autoFocusFineProbeDirection = -1;
+    size_t autoFocusHillClimbStartIndex = 0;
     double autoFocusEstimatedPosition = 0.0;
     double autoFocusFinalTargetPosition = 0.0;
     std::vector<double> autoFocusPositions;
