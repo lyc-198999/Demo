@@ -8,7 +8,7 @@
 | --- | --- |
 | `Demo/main.cpp` | Qt 程序入口，创建并显示主窗口。 |
 | `Demo/Demo.h` | `MainWindow` 类声明，集中保存界面、相机、电机和自动对焦状态。 |
-| `Demo/Demo.cpp` | 主窗口初始化、参数控件绑定、模式切换、状态栏显示和日志输出。 |
+| `Demo/Demo.cpp` | 主窗口初始化、参数控件绑定、模式切换、状态栏显示、日志输出、图像保存和日志导出。 |
 | `Demo/DemoImage.cpp` | 相机帧刷新、图像显示、清晰度刷新和自动对焦周期推进。 |
 | `Demo/DemoMotor.cpp` | 串口刷新、驱动器连接、手动移动、急停和电机状态同步。 |
 | `Demo/DemoAutoFocus.cpp` | 自动对焦状态机、判峰、过峰确认、小步长复核和最终回焦。 |
@@ -59,6 +59,10 @@ GaussianAutoFocus::FitResult fit =
 ```
 
 自动对焦状态机由 `MainWindow::processAutoFocus()` 推进，通常不应在其它文件中直接操作采样数组。需要调整判峰、过峰次数、小步长策略时，优先修改 `Demo/DemoAutoFocus.cpp` 中的具名 `DemoAutoFocusDetail` 辅助函数。
+
+## 数据保存
+
+右侧“数据”页签提供当前图像保存、事件日志导出和保存目录打开。保存目录和自动保存开关通过 Qt `QSettings` 持久化，默认目录为用户文档目录下的 `AutoFocusData`。自动保存只在自动对焦成功完成后触发，不在失败或阻塞状态下触发。
 
 ## 编码和维护约定
 

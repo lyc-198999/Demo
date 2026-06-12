@@ -449,6 +449,7 @@ void MainWindow::processAutoFocus()
                           .arg(autoFocusEstimatedPosition, 0, 'f', 0)
                           .arg(currentSharpness, 0, 'f', 2)
                           .arg(bestSharpness, 0, 'f', 2));
+            handleAutoFocusArtifactsIfNeeded();
             updateStatusDisplay();
             return;
         }
@@ -591,6 +592,7 @@ void MainWindow::processAutoFocus()
                 appendLog(QString("自动对焦完成：当前位置接近%1，清晰度=%2。")
                               .arg(targetSource)
                               .arg(currentSharpness, 0, 'f', 2));
+                handleAutoFocusArtifactsIfNeeded();
                 updateStatusDisplay();
                 return;
             }
@@ -658,6 +660,7 @@ void MainWindow::processAutoFocus()
             {
                 autoFocusFinished = true;
                 appendLog("自动对焦完成：当前位置接近已确认的采样峰值。");
+                handleAutoFocusArtifactsIfNeeded();
                 updateStatusDisplay();
             }
             else
@@ -721,6 +724,7 @@ void MainWindow::resetAutoFocusState(bool logReset)
     autoFocusEstimatedPosition = 0.0;
     autoFocusFinalTargetPosition = 0.0;
     autoFocusBlockReason.clear();
+    autoFocusArtifactsSaved = false;
 
     if (logReset && hadState)
     {

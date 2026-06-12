@@ -2,10 +2,15 @@
 #include "ui_Demo.h"
 
 #include <algorithm>
+#include <QCheckBox>
 #include <QDateTime>
+#include <QDesktopServices>
+#include <QDir>
 #include <QFile>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QFrame>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -14,12 +19,15 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSettings>
 #include <QSizePolicy>
 #include <QSpinBox>
+#include <QStandardPaths>
 #include <QStringList>
 #include <QStyle>
 #include <QTabWidget>
 #include <QTextDocument>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -36,6 +44,11 @@ constexpr int kLogPanelMinimumHeight = 180;
 constexpr int kLogTextMinimumHeight = 140;
 constexpr int kImageColumnStretch = 3;
 constexpr int kControlColumnStretch = 2;
+constexpr const char* kSettingsOrganization = "AutoFocusSystem";
+constexpr const char* kSettingsApplication = "Demo";
+constexpr const char* kSettingsDataDirectoryKey = "data/saveDirectory";
+constexpr const char* kSettingsAutoSaveImageKey = "data/autoSaveImage";
+constexpr const char* kSettingsAutoExportLogKey = "data/autoExportLog";
 
 // 用法：清空布局项但保留其中的已有控件，便于把 Designer 控件重组成页签。
 void ClearLayoutItems(QLayout* layout)
@@ -63,6 +76,69 @@ void AddWidgetBeforeStretch(QWidget* page, QWidget* widget)
     auto* layout = qobject_cast<QVBoxLayout*>(page->layout());
     const int insertIndex = std::max(0, layout->count() - 1);
     layout->insertWidget(insertIndex, widget);
+}
+
+// 用法：返回默认图像和日志保存目录。
+QString DefaultDataSaveDirectory()
+{
+    QString documentsPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    if (documentsPath.isEmpty())
+    {
+        documentsPath = QDir::homePath();
+    }
+
+    return QDir(documentsPath).filePath(QStringLiteral("AutoFocusData"));
+}
+
+// 用法：把原始 OpenCV 图像转换为可保存的 QImage。
+QImage MatToSaveImage(const cv::Mat& mat)
+{
+    if (mat.empty())
+    {
+        return {};
+    }
+
+    switch (mat.type())
+    {
+    case CV_8UC1:
+        return QImage(mat.data,
+                      mat.cols,
+                      mat.rows,
+                      static_cast<qsizetype>(mat.step),
+                      QImage::Format_Grayscale8).copy();
+
+    case CV_16UC1:
+        return QImage(mat.data,
+                      mat.cols,
+                      mat.rows,
+                      static_cast<qsizetype>(mat.step),
+                      QImage::Format_Grayscale16).copy();
+
+    case CV_8UC3:
+    {
+        cv::Mat rgb;
+        cv::cvtColor(mat, rgb, cv::COLOR_BGR2RGB);
+        return QImage(rgb.data,
+                      rgb.cols,
+                      rgb.rows,
+                      static_cast<qsizetype>(rgb.step),
+                      QImage::Format_RGB888).copy();
+    }
+
+    case CV_8UC4:
+    {
+        cv::Mat rgba;
+        cv::cvtColor(mat, rgba, cv::COLOR_BGRA2RGBA);
+        return QImage(rgba.data,
+                      rgba.cols,
+                      rgba.rows,
+                      static_cast<qsizetype>(rgba.step),
+                      QImage::Format_RGBA8888).copy();
+    }
+
+    default:
+        return {};
+    }
 }
 
 // 用法：将右侧功能区拆成运行、连接、参数三个页签，降低长表单带来的扫描负担。
@@ -237,6 +313,7 @@ void MainWindow::initializeModernUi()
     ui->gridLayoutRoot->removeWidget(ui->group_image);
     ui->gridLayoutRoot->removeWidget(ui->group_log);
     DemoWindowDetail::ConfigureControlPanelScrollArea(ui);
+    initializeDataControls();
 
     auto* topStatusBar = new QFrame(ui->centralWidget);
     topStatusBar->setObjectName("topStatusBar");
@@ -291,6 +368,60 @@ void MainWindow::initializeModernUi()
     ui->gridLayoutRoot->addWidget(ui->group_log, 2, 0, 1, 2);
 
     DemoWindowDetail::ConfigureMainLayout(ui);
+}
+
+// 用法：创建数据保存页签和控件，不修改 Designer 生成的 .ui 文件。
+void MainWindow::initializeDataControls()
+{
+    auto* tabs = ui->centralWidget->findChild<QTabWidget*>(QStringLiteral("tabs_control_panel"));
+    if (tabs == nullptr)
+    {
+        return;
+    }
+
+    auto* dataPage = DemoWindowDetail::CreateTabPage(tabs);
+    auto* dataGroup = new QGroupBox(QStringLiteral("数据管理"), dataPage);
+    auto* groupLayout = new QVBoxLayout(dataGroup);
+    groupLayout->setContentsMargins(10, 10, 10, 10);
+    groupLayout->setSpacing(8);
+
+    auto* directoryLayout = new QGridLayout();
+    directoryLayout->setColumnStretch(1, 1);
+    auto* directoryTitle = new QLabel(QStringLiteral("保存目录"), dataGroup);
+    labelDataDirectory = new QLabel(dataGroup);
+    labelDataDirectory->setWordWrap(true);
+    labelDataDirectory->setProperty("role", "focusSummary");
+    auto* buttonSelectDirectory = new QPushButton(QStringLiteral("选择目录"), dataGroup);
+    directoryLayout->addWidget(directoryTitle, 0, 0);
+    directoryLayout->addWidget(labelDataDirectory, 0, 1);
+    directoryLayout->addWidget(buttonSelectDirectory, 1, 1);
+    groupLayout->addLayout(directoryLayout);
+
+    auto* actionLayout = new QHBoxLayout();
+    auto* buttonSaveImage = new QPushButton(QStringLiteral("保存当前图像"), dataGroup);
+    auto* buttonExportLog = new QPushButton(QStringLiteral("导出日志"), dataGroup);
+    actionLayout->addWidget(buttonSaveImage);
+    actionLayout->addWidget(buttonExportLog);
+    groupLayout->addLayout(actionLayout);
+
+    auto* buttonOpenDirectory = new QPushButton(QStringLiteral("打开保存目录"), dataGroup);
+    groupLayout->addWidget(buttonOpenDirectory);
+
+    checkAutoSaveImage = new QCheckBox(QStringLiteral("对焦完成后保存图像"), dataGroup);
+    checkAutoExportLog = new QCheckBox(QStringLiteral("对焦完成后导出日志"), dataGroup);
+    groupLayout->addWidget(checkAutoSaveImage);
+    groupLayout->addWidget(checkAutoExportLog);
+
+    connect(buttonSelectDirectory, &QPushButton::clicked, this, &MainWindow::selectDataSaveDirectory);
+    connect(buttonSaveImage, &QPushButton::clicked, this, [this]() { saveCurrentImage(); });
+    connect(buttonExportLog, &QPushButton::clicked, this, [this]() { exportLog(); });
+    connect(buttonOpenDirectory, &QPushButton::clicked, this, &MainWindow::openDataSaveDirectory);
+    connect(checkAutoSaveImage, &QCheckBox::toggled, this, [this](bool) { saveDataSettings(); });
+    connect(checkAutoExportLog, &QCheckBox::toggled, this, [this](bool) { saveDataSettings(); });
+
+    DemoWindowDetail::AddWidgetBeforeStretch(dataPage, dataGroup);
+    tabs->addTab(dataPage, QStringLiteral("数据"));
+    loadDataSettings();
 }
 
 // 用法：初始化界面控件、串口控件和相机刷新定时器。
@@ -816,6 +947,226 @@ void MainWindow::setStatusBadge(QLabel* label, const QString& text, const QStrin
     label->style()->unpolish(label);
     label->style()->polish(label);
     label->update();
+}
+
+// 用法：选择图像和日志保存目录。
+void MainWindow::selectDataSaveDirectory()
+{
+    const QString startDirectory = dataSaveDirectory.isEmpty()
+                                       ? DemoWindowDetail::DefaultDataSaveDirectory()
+                                       : dataSaveDirectory;
+    const QString selectedDirectory =
+        QFileDialog::getExistingDirectory(this,
+                                          QStringLiteral("选择保存目录"),
+                                          startDirectory,
+                                          QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (selectedDirectory.isEmpty())
+    {
+        return;
+    }
+
+    dataSaveDirectory = selectedDirectory;
+    if (labelDataDirectory != nullptr)
+    {
+        labelDataDirectory->setText(QDir::toNativeSeparators(dataSaveDirectory));
+    }
+
+    saveDataSettings();
+    appendLog(QStringLiteral("数据保存目录已切换为：%1。")
+                  .arg(QDir::toNativeSeparators(dataSaveDirectory)));
+}
+
+// 用法：保存当前原始相机帧为 PNG。
+bool MainWindow::saveCurrentImage(const QString& filePrefix, bool logSuccess)
+{
+    if (frame.empty())
+    {
+        appendLog(QStringLiteral("当前无有效图像，无法保存。"), LogLevel::Warning);
+        return false;
+    }
+
+    QImage saveImage = DemoWindowDetail::MatToSaveImage(frame);
+    if (saveImage.isNull())
+    {
+        appendLog(QStringLiteral("当前图像格式不支持保存。"), LogLevel::Error);
+        return false;
+    }
+
+    QDir directory(dataSaveDirectory.isEmpty()
+                       ? DemoWindowDetail::DefaultDataSaveDirectory()
+                       : dataSaveDirectory);
+    if (!directory.exists() && !directory.mkpath(QStringLiteral(".")))
+    {
+        appendLog(QStringLiteral("创建图像保存目录失败：%1。")
+                      .arg(QDir::toNativeSeparators(directory.absolutePath())),
+                  LogLevel::Error);
+        return false;
+    }
+
+    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
+    const QString fileName = filePrefix == QStringLiteral("autofocus")
+                                 ? QStringLiteral("autofocus_%1.png").arg(timestamp)
+                                 : QStringLiteral("%1_%2.png").arg(filePrefix, timestamp);
+    const QString filePath = directory.filePath(fileName);
+    if (!saveImage.save(filePath, "PNG"))
+    {
+        appendLog(QStringLiteral("保存图像失败：%1。").arg(QDir::toNativeSeparators(filePath)),
+                  LogLevel::Error);
+        return false;
+    }
+
+    if (logSuccess)
+    {
+        appendLog(QStringLiteral("图像已保存：%1。").arg(QDir::toNativeSeparators(filePath)),
+                  LogLevel::Success);
+    }
+    return true;
+}
+
+// 用法：导出当前事件日志为 UTF-8 文本。
+bool MainWindow::exportLog(const QString& filePrefix, bool logSuccess)
+{
+    QDir directory(dataSaveDirectory.isEmpty()
+                       ? DemoWindowDetail::DefaultDataSaveDirectory()
+                       : dataSaveDirectory);
+    if (!directory.exists() && !directory.mkpath(QStringLiteral(".")))
+    {
+        appendLog(QStringLiteral("创建日志保存目录失败：%1。")
+                      .arg(QDir::toNativeSeparators(directory.absolutePath())),
+                  LogLevel::Error);
+        return false;
+    }
+
+    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
+    const QString fileName = filePrefix == QStringLiteral("autofocus")
+                                 ? QStringLiteral("autofocus_%1_log.txt").arg(timestamp)
+                                 : QStringLiteral("%1_%2.txt").arg(filePrefix, timestamp);
+    const QString filePath = directory.filePath(fileName);
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        appendLog(QStringLiteral("导出日志失败：%1。").arg(file.errorString()), LogLevel::Error);
+        return false;
+    }
+
+    const QByteArray content = ui->text_log->toPlainText().toUtf8();
+    if (file.write(content) != content.size())
+    {
+        appendLog(QStringLiteral("写入日志文件失败：%1。").arg(file.errorString()), LogLevel::Error);
+        return false;
+    }
+
+    if (logSuccess)
+    {
+        appendLog(QStringLiteral("日志已导出：%1。").arg(QDir::toNativeSeparators(filePath)),
+                  LogLevel::Success);
+    }
+    return true;
+}
+
+// 用法：打开当前保存目录。
+void MainWindow::openDataSaveDirectory()
+{
+    QDir directory(dataSaveDirectory.isEmpty()
+                       ? DemoWindowDetail::DefaultDataSaveDirectory()
+                       : dataSaveDirectory);
+    if (!directory.exists() && !directory.mkpath(QStringLiteral(".")))
+    {
+        appendLog(QStringLiteral("创建保存目录失败：%1。")
+                      .arg(QDir::toNativeSeparators(directory.absolutePath())),
+                  LogLevel::Error);
+        return;
+    }
+
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(directory.absolutePath())))
+    {
+        appendLog(QStringLiteral("打开保存目录失败：%1。")
+                      .arg(QDir::toNativeSeparators(directory.absolutePath())),
+                  LogLevel::Error);
+    }
+}
+
+// 用法：加载数据保存配置。
+void MainWindow::loadDataSettings()
+{
+    QSettings settings(QString::fromLatin1(DemoWindowDetail::kSettingsOrganization),
+                       QString::fromLatin1(DemoWindowDetail::kSettingsApplication));
+    dataSaveDirectory = settings.value(QString::fromLatin1(DemoWindowDetail::kSettingsDataDirectoryKey),
+                                       DemoWindowDetail::DefaultDataSaveDirectory())
+                            .toString();
+
+    if (labelDataDirectory != nullptr)
+    {
+        labelDataDirectory->setText(QDir::toNativeSeparators(dataSaveDirectory));
+    }
+
+    if (checkAutoSaveImage != nullptr)
+    {
+        checkAutoSaveImage->setChecked(settings.value(
+                                             QString::fromLatin1(DemoWindowDetail::kSettingsAutoSaveImageKey),
+                                             false)
+                                             .toBool());
+    }
+
+    if (checkAutoExportLog != nullptr)
+    {
+        checkAutoExportLog->setChecked(settings.value(
+                                             QString::fromLatin1(DemoWindowDetail::kSettingsAutoExportLogKey),
+                                             false)
+                                             .toBool());
+    }
+}
+
+// 用法：保存数据保存配置。
+void MainWindow::saveDataSettings()
+{
+    QSettings settings(QString::fromLatin1(DemoWindowDetail::kSettingsOrganization),
+                       QString::fromLatin1(DemoWindowDetail::kSettingsApplication));
+    settings.setValue(QString::fromLatin1(DemoWindowDetail::kSettingsDataDirectoryKey),
+                      dataSaveDirectory.isEmpty()
+                          ? DemoWindowDetail::DefaultDataSaveDirectory()
+                          : dataSaveDirectory);
+
+    if (checkAutoSaveImage != nullptr)
+    {
+        settings.setValue(QString::fromLatin1(DemoWindowDetail::kSettingsAutoSaveImageKey),
+                          checkAutoSaveImage->isChecked());
+    }
+
+    if (checkAutoExportLog != nullptr)
+    {
+        settings.setValue(QString::fromLatin1(DemoWindowDetail::kSettingsAutoExportLogKey),
+                          checkAutoExportLog->isChecked());
+    }
+}
+
+// 用法：自动对焦成功后按设置保存图像和日志。
+void MainWindow::handleAutoFocusArtifactsIfNeeded()
+{
+    if (autoFocusArtifactsSaved)
+    {
+        return;
+    }
+
+    const bool shouldSaveImage = checkAutoSaveImage != nullptr && checkAutoSaveImage->isChecked();
+    const bool shouldExportLog = checkAutoExportLog != nullptr && checkAutoExportLog->isChecked();
+    if (!shouldSaveImage && !shouldExportLog)
+    {
+        autoFocusArtifactsSaved = true;
+        return;
+    }
+
+    if (shouldSaveImage)
+    {
+        saveCurrentImage(QStringLiteral("autofocus"));
+    }
+
+    if (shouldExportLog)
+    {
+        exportLog(QStringLiteral("autofocus"));
+    }
+
+    autoFocusArtifactsSaved = true;
 }
 
 // 用法：根据日志内容和显式等级确定最终显示等级。

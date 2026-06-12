@@ -12,6 +12,7 @@
 #include <vector>
 
 class QLabel;
+class QCheckBox;
 class QProgressBar;
 
 QT_BEGIN_NAMESPACE
@@ -57,6 +58,8 @@ private:
     void resizeEvent(QResizeEvent* event) override;
     // 用法：创建现代化仪器布局、右侧对焦结果卡和全局样式。
     void initializeModernUi();
+    // 用法：创建图像保存和日志导出控件。
+    void initializeDataControls();
     // 用法：显示当前相机帧。
     void showFrame(const cv::Mat& frame);
     // 用法：按控件大小刷新图像。
@@ -91,6 +94,20 @@ private:
     void reportAutoFocusBlocked(const QString& reason);
     // 用法：清除自动对焦阻塞原因。
     void clearAutoFocusBlockReason();
+    // 用法：选择图像和日志保存目录。
+    void selectDataSaveDirectory();
+    // 用法：保存当前原始相机帧。
+    bool saveCurrentImage(const QString& filePrefix = QStringLiteral("image"), bool logSuccess = true);
+    // 用法：导出当前事件日志。
+    bool exportLog(const QString& filePrefix = QStringLiteral("log"), bool logSuccess = true);
+    // 用法：打开当前保存目录。
+    void openDataSaveDirectory();
+    // 用法：加载数据保存配置。
+    void loadDataSettings();
+    // 用法：保存数据保存配置。
+    void saveDataSettings();
+    // 用法：自动对焦成功后按设置保存图像和日志。
+    void handleAutoFocusArtifactsIfNeeded();
 
     Ui::DemoClass* ui;
     QTimer* timer;
@@ -107,6 +124,9 @@ private:
     QLabel* labelFocusTargetSummary = nullptr;
     QLabel* labelFocusSampleSummary = nullptr;
     QLabel* labelFocusSharpnessSummary = nullptr;
+    QLabel* labelDataDirectory = nullptr;
+    QCheckBox* checkAutoSaveImage = nullptr;
+    QCheckBox* checkAutoExportLog = nullptr;
     QProgressBar* progressFocusStage = nullptr;
 
     cv::Mat frame;
@@ -151,6 +171,8 @@ private:
     std::vector<double> autoFocusSharpnessValues;
     QString autoFocusBlockReason;
     QString motorRunState = "未连接";
+    QString dataSaveDirectory;
+    bool autoFocusArtifactsSaved = false;
 };
 
 #endif
