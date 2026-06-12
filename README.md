@@ -1,73 +1,108 @@
-# 自动对焦系统项目说明
+# AutoFocusSystem
+
+基于 Qt、OpenCV、FLIR Spinnaker 和串口电机控制的自动对焦实验软件。项目包含实时图像显示、清晰度评价、自动对焦搜索、电机控制、图像保存和日志导出功能。
+
+## 功能
+
+- 实时采集 FLIR/Spinnaker 相机图像，并显示当前清晰度。
+- 通过串口控制步进电机，支持手动前进、后退和急停。
+- 自动对焦流程包含初始方向判断、爬山搜索、小步长扫描、高斯拟合和最终回焦。
+- 支持保存当前原始图像、导出运行日志，并可在自动对焦完成后自动保存实验结果。
+- 右侧页签式控制面板用于运行、连接、参数和数据管理。
 
 ## 项目结构
 
-本项目是基于 Qt、OpenCV、Spinnaker 和串口电机协议的自动对焦实验程序。后期维护时优先按职责查找文件：
-
-| 文件 | 职责 |
-| --- | --- |
-| `AutoFocusSystem/main.cpp` | Qt 程序入口，创建并显示主窗口。 |
-| `AutoFocusSystem/MainWindow.h` | `MainWindow` 类声明，集中保存界面、相机、电机和自动对焦状态。 |
-| `AutoFocusSystem/MainWindow.cpp` | 主窗口初始化、参数控件绑定、模式切换、状态栏显示、日志输出、图像保存和日志导出。 |
-| `AutoFocusSystem/MainWindowImage.cpp` | 相机帧刷新、图像显示、清晰度刷新和自动对焦周期推进。 |
-| `AutoFocusSystem/MainWindowMotor.cpp` | 串口刷新、驱动器连接、手动移动、急停和电机状态同步。 |
-| `AutoFocusSystem/MainWindowAutoFocus.cpp` | 自动对焦状态机、判峰、过峰确认、小步长复核和最终回焦。 |
-| `AutoFocusSystem/Sharpness.cpp/.h` | 0-100 归一化 Tenengrad 清晰度评价函数。 |
-| `AutoFocusSystem/GaussianAutoFocus.cpp/.h` | Gauss-Newton 高斯拟合，用于估计焦面位置。 |
-| `AutoFocusSystem/MotorSerialPort.cpp/.h` | 正点原子自定义串口协议封装和驱动器状态读取。 |
-| `AutoFocusSystem/SpinnakerCamera.cpp` | FLIR/Spinnaker 相机取帧，并转换为 OpenCV `cv::Mat`。 |
-
-## 自动对焦算法
-
-自动对焦流程位于 `AutoFocusSystem/MainWindowAutoFocus.cpp`：
-
-1. 自动模式下每次相机刷新后采样当前位置和清晰度。
-2. 使用归一化 Tenengrad 清晰度，接口为 `Sharpness::Calculate`。
-3. 扫描时持续记录 `autoFocusPositions` 和 `autoFocusSharpnessValues`。
-4. 初始方向先固定均匀采样 5 个点并做线性拟合；斜率为正时继续前进，斜率为负时切换为后退。
-5. 判峰逻辑要求最高点前出现有效上升，并且最高点后出现 3 个有效低于峰值的过峰采样。
-6. 初始 5 点定方向后的爬山搜索阶段，如果清晰度评价值连续 3 次下降，也会停止爬山搜索并回到历史峰值。
-7. 接近焦面判断使用最近 3 点线性斜率，斜率需同时超过固定阈值和动态阈值；动态阈值由最近 3 次清晰度评价值的均值和方差相减后取绝对值得到。
-8. 峰值确认后优先使用高斯拟合中心作为目标并一次性回焦；拟合中心异常时退回采样峰值。
-9. 最终回焦后同时复核目标位置和当前清晰度；位置未到目标会继续修正，清晰度未达到采样峰值比例时继续小步长复核。
-
-关键参数可以直接在界面“电机参数”区域修改：
-
-| 参数 | 默认值 | 用途 |
-| --- | --- | --- |
-| 手动步数 | 3200 脉冲 | 手动前进/后退单次位移。 |
-| 手动速度 | 800 RPM | 手动移动速度。 |
-| 手动加减速 | 20 | 手动移动加减速度。 |
-| 自动步数 | 3200 脉冲 | 自动对焦常规扫描步长。 |
-| 小步长 | 800 脉冲 | 焦面附近扫描、复核和受限修正步长。 |
-| 自动速度 | 500 RPM | 自动对焦移动速度。 |
-| 自动加减速 | 15 | 自动对焦移动加减速度。 |
-
-## 算法接口
-
-清晰度评价：
-
-```cpp
-double sharpness = Sharpness::Calculate(frame);
+```text
+AutoFocusSystem/
+├─ AutoFocusSystem.sln              # Visual Studio 解决方案
+├─ AutoFocusSystem/                 # 主程序源码和工程文件
+│  ├─ MainWindow.cpp/.h/.ui          # 主窗口、界面初始化、数据保存和日志导出
+│  ├─ MainWindowAutoFocus.cpp        # 自动对焦状态机和搜索策略
+│  ├─ MainWindowImage.cpp            # 相机帧刷新、图像显示和清晰度计算调度
+│  ├─ MainWindowMotor.cpp            # 串口连接、电机控制和急停
+│  ├─ MotorSerialPort.cpp/.h         # 正点原子电机串口协议封装
+│  ├─ SpinnakerCamera.cpp            # FLIR/Spinnaker 相机取帧
+│  ├─ Sharpness.cpp/.h               # Tenengrad 清晰度评价
+│  ├─ GaussianAutoFocus.cpp/.h       # Gauss-Newton 高斯拟合
+│  ├─ AppTheme.qss                   # Qt 样式
+│  └─ AutoFocusSystem.qrc            # Qt 资源文件
+├─ docs/                             # 算法和使用说明
+├─ tools/                            # 独立实验工具
+└─ packaging/                        # Windows 打包脚本和发布说明
 ```
 
-高斯拟合：
+## 自动对焦逻辑
 
-```cpp
-GaussianAutoFocus::FitResult fit =
-    GaussianAutoFocus::FitGaussNewton(positions, sharpnessValues);
+自动对焦主流程位于 `AutoFocusSystem/MainWindowAutoFocus.cpp`，由 `MainWindow::processAutoFocus()` 周期推进。
+
+1. 自动模式下每次相机刷新后记录当前位置和清晰度评价值。
+2. 初始阶段固定均匀采样 5 点，并对位置和清晰度做线性拟合。
+3. 根据拟合斜率符号确定后续扫描方向。
+4. 进入爬山搜索后，如果清晰度连续三次下降，则停止搜索并回到历史峰值。
+5. 接近焦面时切换小步长扫描；切换条件要求最近 3 点斜率同时超过固定阈值和动态阈值。
+6. 峰值确认后优先使用高斯拟合中心作为目标位置，异常时回退到采样峰值。
+7. 最终回焦后复核目标位置和当前清晰度，满足条件后结束自动对焦。
+
+更详细的算法说明见 [docs/autofocus-algorithm.md](docs/autofocus-algorithm.md)。
+
+## 构建环境
+
+当前工程按以下本机环境配置：
+
+- Visual Studio 2022 / MSBuild v143
+- Qt 6.5.3 msvc2019_64
+- OpenCV 4.12.0
+- Teledyne FLIR Spinnaker SDK
+- Windows x64
+
+Debug 构建示例：
+
+```powershell
+& 'D:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
+  AutoFocusSystem.sln `
+  /p:Configuration=Debug `
+  /p:Platform=x64 `
+  /m
 ```
 
-自动对焦状态机由 `MainWindow::processAutoFocus()` 推进，通常不应在其它文件中直接操作采样数组。需要调整判峰、过峰次数、小步长策略时，优先修改 `AutoFocusSystem/MainWindowAutoFocus.cpp` 中的具名 `AutoFocusDetail` 辅助函数。
+Release 构建示例：
 
-## 数据保存
+```powershell
+& 'D:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
+  AutoFocusSystem.sln `
+  /p:Configuration=Release `
+  /p:Platform=x64 `
+  /m
+```
 
-右侧“数据”页签提供当前图像保存、事件日志导出和保存目录打开。保存目录和自动保存开关通过 Qt `QSettings` 持久化，默认目录为用户文档目录下的 `AutoFocusData`。自动保存只在自动对焦成功完成后触发，不在失败或阻塞状态下触发。界面日志只显示关键事件，导出的日志包含完整会话记录；文件名使用毫秒时间戳并在重名时追加序号，避免覆盖旧文件。
+## 发布包
 
-## 编码和维护约定
+Windows 运行包由 `packaging/package-windows.ps1` 生成。脚本会复制 Release 版 `AutoFocusSystem.exe`，调用 `windeployqt` 收集 Qt 运行库，并补充 OpenCV 和 Spinnaker 运行库。
 
-- 源码、工程文件和文档使用 UTF-8 带签名编码保存。
-- 所有异常、日志和界面提示使用中文。
-- 不使用未命名命名空间；仅使用具名 `Detail` 或职责命名空间。
-- 新增功能应优先放入对应职责文件，避免继续扩大 `MainWindow.cpp`。
-- 旧的勒让德拟合和未使用的 `AutoFocus.*` 已删除，当前算法以 Tenengrad 清晰度和高斯拟合为主。
+```powershell
+.\packaging\package-windows.ps1 -Version 0.1.0
+```
+
+生成结果位于：
+
+```text
+release/AutoFocusSystem-v0.1.0-windows-x64.zip
+```
+
+`release/` 和 `dist/` 不进入源码仓库，正式发布时应把 zip 上传到 GitHub Releases。
+
+## 运行说明
+
+1. 连接 FLIR 相机和电机驱动器。
+2. 启动程序后在“连接”页签选择串口和波特率。
+3. 点击“连接”，确认电机状态正常。
+4. 手动模式下可用“前进/后退”调整初始位置。
+5. 切换到自动模式后，程序开始自动采样、搜索焦面并回焦。
+6. 在“数据”页签可保存当前图像、导出日志或打开保存目录。
+
+## 注意
+
+- 工程文件包含本机依赖路径，迁移到其它机器时需要同步调整 Qt、OpenCV 和 Spinnaker 路径。
+- Release 包不包含相机驱动安装程序，目标机器仍需安装对应 Spinnaker 驱动或运行库。
+- 自动对焦参数应结合实际电机步距、镜头行程和样品情况调整。
+
