@@ -89,7 +89,7 @@ Windows 运行包由 `packaging/package-windows.ps1` 生成。脚本会复制 Re
 release/AutoFocusSystem-v0.1.0-windows-x64.zip
 ```
 
-`release/` 和 `dist/` 不进入源码仓库，正式发布时应把 zip 上传到 GitHub Releases。
+`release/` 和 `dist/` 不进入源码仓库。
 
 ## 运行说明
 
