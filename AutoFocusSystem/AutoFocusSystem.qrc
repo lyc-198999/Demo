@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="AutoFocusSystem">
+        <file>AppTheme.qss</file>
+    </qresource>
+</RCC>

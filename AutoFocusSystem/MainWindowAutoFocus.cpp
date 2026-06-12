@@ -1,13 +1,13 @@
-﻿#include "Demo.h"
+﻿#include "MainWindow.h"
 #include "GaussianAutoFocus.h"
-#include "ui_Demo.h"
+#include "ui_MainWindow.h"
 
 #include <algorithm>
 #include <cmath>
 #include <exception>
 #include <QTimer>
 
-namespace DemoAutoFocusDetail
+namespace AutoFocusDetail
 {
 constexpr quint32 kAutoFocusMaxCorrectionPulses = 100000;
 constexpr quint32 kAutoFocusFinishTolerancePulses = 20;
@@ -408,17 +408,17 @@ void MainWindow::processAutoFocus()
     }
 
     const size_t sampleCount = autoFocusPositions.size();
-    size_t bestIndex = DemoAutoFocusDetail::BestSharpnessIndex(autoFocusSharpnessValues);
+    size_t bestIndex = AutoFocusDetail::BestSharpnessIndex(autoFocusSharpnessValues);
     size_t confirmedPeakIndex = bestIndex;
     const bool foundConfirmedPeak =
-        DemoAutoFocusDetail::TryFindConfirmedPeakIndex(autoFocusSharpnessValues, confirmedPeakIndex);
+        AutoFocusDetail::TryFindConfirmedPeakIndex(autoFocusSharpnessValues, confirmedPeakIndex);
     if (foundConfirmedPeak)
     {
         bestIndex = confirmedPeakIndex;
         autoFocusPeakConfirmed = true;
     }
     else if (autoFocusInitialDirectionResolved &&
-             DemoAutoFocusDetail::TryFindHillClimbStopPeakIndex(autoFocusSharpnessValues,
+             AutoFocusDetail::TryFindHillClimbStopPeakIndex(autoFocusSharpnessValues,
                                                                  autoFocusHillClimbStartIndex,
                                                                  confirmedPeakIndex))
     {
@@ -430,17 +430,17 @@ void MainWindow::processAutoFocus()
     const double bestPosition = autoFocusPositions[bestIndex];
     const double bestSharpness = autoFocusSharpnessValues[bestIndex];
     const int postPeakSamples =
-        DemoAutoFocusDetail::CountPostPeakSamples(autoFocusSharpnessValues, bestIndex);
+        AutoFocusDetail::CountPostPeakSamples(autoFocusSharpnessValues, bestIndex);
 
     if (verifyFinalPosition)
     {
         const bool closeToFinalTarget =
             autoFocusHasFinalTarget &&
             std::abs(autoFocusEstimatedPosition - autoFocusFinalTargetPosition) <=
-                static_cast<double>(DemoAutoFocusDetail::kAutoFocusFinishTolerancePulses);
+                static_cast<double>(AutoFocusDetail::kAutoFocusFinishTolerancePulses);
         const bool closeToBestSharpness =
             autoFocusPeakConfirmed &&
-            currentSharpness >= bestSharpness * DemoAutoFocusDetail::kAutoFocusVerifySharpnessRatio;
+            currentSharpness >= bestSharpness * AutoFocusDetail::kAutoFocusVerifySharpnessRatio;
         if (closeToFinalTarget && closeToBestSharpness)
         {
             autoFocusFinished = true;
@@ -471,7 +471,7 @@ void MainWindow::processAutoFocus()
 
     if (!autoFocusInitialDirectionResolved)
     {
-        if (sampleCount < DemoAutoFocusDetail::kAutoFocusDirectionProbeSamples)
+        if (sampleCount < AutoFocusDetail::kAutoFocusDirectionProbeSamples)
         {
             if (!sendAutoFocusMove(static_cast<double>(autoFocusScanDirection) *
                                        static_cast<double>(autoFocusScanStep),
@@ -484,10 +484,10 @@ void MainWindow::processAutoFocus()
         }
 
         const double initialSlope =
-            DemoAutoFocusDetail::LinearSharpnessSlope(autoFocusPositions,
+            AutoFocusDetail::LinearSharpnessSlope(autoFocusPositions,
                                                       autoFocusSharpnessValues,
                                                       0,
-                                                      DemoAutoFocusDetail::kAutoFocusDirectionProbeSamples);
+                                                      AutoFocusDetail::kAutoFocusDirectionProbeSamples);
         autoFocusScanDirection = initialSlope < 0.0 ? -1 : 1;
         autoFocusFineProbeDirection = -autoFocusScanDirection;
         autoFocusInitialDirectionResolved = true;
@@ -499,17 +499,17 @@ void MainWindow::processAutoFocus()
 
     if (!autoFocusPeakConfirmed)
     {
-        if (sampleCount >= DemoAutoFocusDetail::kAutoFocusMaxSamples)
+        if (sampleCount >= AutoFocusDetail::kAutoFocusMaxSamples)
         {
             autoFocusFinished = true;
             reportAutoFocusBlocked("自动对焦未检测到过峰 3 次，请增大扫描范围或减小步长");
             return;
         }
 
-        const int tailDrops = DemoAutoFocusDetail::CountTailSharpnessDrops(autoFocusSharpnessValues);
-        const bool hasSeenRise = DemoAutoFocusDetail::HasAnySharpnessRise(autoFocusSharpnessValues);
+        const int tailDrops = AutoFocusDetail::CountTailSharpnessDrops(autoFocusSharpnessValues);
+        const bool hasSeenRise = AutoFocusDetail::HasAnySharpnessRise(autoFocusSharpnessValues);
         if (tailDrops == 0 && sampleCount >= 2 &&
-            DemoAutoFocusDetail::IsSignificantSharpnessRise(autoFocusSharpnessValues[sampleCount - 2],
+            AutoFocusDetail::IsSignificantSharpnessRise(autoFocusSharpnessValues[sampleCount - 2],
                                                             autoFocusSharpnessValues[sampleCount - 1]))
         {
             appendLog("检测到清晰度上升，继续同方向扫描以确认下降侧。", LogLevel::Info, false);
@@ -523,7 +523,7 @@ void MainWindow::processAutoFocus()
 
         const bool useFineStep =
             autoFocusFineScanActive ||
-            DemoAutoFocusDetail::ShouldUseFineAutoFocusStep(autoFocusPositions,
+            AutoFocusDetail::ShouldUseFineAutoFocusStep(autoFocusPositions,
                                                             autoFocusSharpnessValues,
                                                             bestIndex,
                                                             postPeakSamples);
@@ -548,13 +548,13 @@ void MainWindow::processAutoFocus()
     QString targetSource = "采样峰值";
     try
     {
-        if (sampleCount >= DemoAutoFocusDetail::kAutoFocusMinFitSamples)
+        if (sampleCount >= AutoFocusDetail::kAutoFocusMinFitSamples)
         {
             const GaussianAutoFocus::FitResult fit =
                 GaussianAutoFocus::FitGaussNewton(autoFocusPositions, autoFocusSharpnessValues);
             const auto [minIt, maxIt] =
                 std::minmax_element(autoFocusPositions.begin(), autoFocusPositions.end());
-            if (DemoAutoFocusDetail::IsUsableGaussianCenter(fit.center,
+            if (AutoFocusDetail::IsUsableGaussianCenter(fit.center,
                                                             *minIt,
                                                             *maxIt,
                                                             bestPosition,
@@ -575,8 +575,8 @@ void MainWindow::processAutoFocus()
         const double correctionPulses = targetPosition - autoFocusEstimatedPosition;
         const double safetyBoundedCorrection = std::clamp(
             correctionPulses,
-            -static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses),
-            static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses));
+            -static_cast<double>(AutoFocusDetail::kAutoFocusMaxCorrectionPulses),
+            static_cast<double>(AutoFocusDetail::kAutoFocusMaxCorrectionPulses));
 
         if (std::abs(correctionPulses - safetyBoundedCorrection) > 0.5)
         {
@@ -585,10 +585,10 @@ void MainWindow::processAutoFocus()
         }
 
         if (std::abs(safetyBoundedCorrection) <=
-            static_cast<double>(DemoAutoFocusDetail::kAutoFocusFinishTolerancePulses))
+            static_cast<double>(AutoFocusDetail::kAutoFocusFinishTolerancePulses))
         {
             if (autoFocusPeakConfirmed &&
-                currentSharpness >= bestSharpness * DemoAutoFocusDetail::kAutoFocusVerifySharpnessRatio)
+                currentSharpness >= bestSharpness * AutoFocusDetail::kAutoFocusVerifySharpnessRatio)
             {
                 autoFocusFinished = true;
                 appendLog(QString("自动对焦完成：当前位置接近%1，清晰度=%2。")
@@ -601,12 +601,12 @@ void MainWindow::processAutoFocus()
 
             const double fallbackDelta = bestPosition - autoFocusEstimatedPosition;
             if (std::abs(fallbackDelta) >
-                static_cast<double>(DemoAutoFocusDetail::kAutoFocusFinishTolerancePulses))
+                static_cast<double>(AutoFocusDetail::kAutoFocusFinishTolerancePulses))
             {
                 const double safetyBoundedFallbackDelta = std::clamp(
                     fallbackDelta,
-                    -static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses),
-                    static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses));
+                    -static_cast<double>(AutoFocusDetail::kAutoFocusMaxCorrectionPulses),
+                    static_cast<double>(AutoFocusDetail::kAutoFocusMaxCorrectionPulses));
                 if (sendAutoFocusMove(safetyBoundedFallbackDelta, "回到采样峰值"))
                 {
                     autoFocusFinalTargetPosition = bestPosition;
@@ -656,9 +656,9 @@ void MainWindow::processAutoFocus()
 
         const double correctionPulses = bestPosition - autoFocusEstimatedPosition;
         if (std::abs(correctionPulses) <=
-            static_cast<double>(DemoAutoFocusDetail::kAutoFocusFinishTolerancePulses))
+            static_cast<double>(AutoFocusDetail::kAutoFocusFinishTolerancePulses))
         {
-            if (currentSharpness >= bestSharpness * DemoAutoFocusDetail::kAutoFocusVerifySharpnessRatio)
+            if (currentSharpness >= bestSharpness * AutoFocusDetail::kAutoFocusVerifySharpnessRatio)
             {
                 autoFocusFinished = true;
                 appendLog("自动对焦完成：当前位置接近已确认的采样峰值。");
@@ -681,8 +681,8 @@ void MainWindow::processAutoFocus()
 
         const double safetyBoundedCorrection = std::clamp(
             correctionPulses,
-            -static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses),
-            static_cast<double>(DemoAutoFocusDetail::kAutoFocusMaxCorrectionPulses));
+            -static_cast<double>(AutoFocusDetail::kAutoFocusMaxCorrectionPulses),
+            static_cast<double>(AutoFocusDetail::kAutoFocusMaxCorrectionPulses));
         if (sendAutoFocusMove(safetyBoundedCorrection, "回到采样峰值"))
         {
             autoFocusFinalTargetPosition = bestPosition;
@@ -816,7 +816,7 @@ bool MainWindow::sendAutoFocusMove(double deltaPulses, const QString& reason)
               false);
 
     QTimer::singleShot(150, this, [this]() { synchronizeMotorStatus(false); });
-    QTimer::singleShot(DemoAutoFocusDetail::kAutoFocusMoveSettleMs, this, [this]() {
+    QTimer::singleShot(AutoFocusDetail::kAutoFocusMoveSettleMs, this, [this]() {
         if (synchronizeMotorStatus(false))
         {
             autoFocusEstimatedPosition = static_cast<double>(currentPosition);

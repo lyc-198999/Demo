@@ -1,4 +1,4 @@
-﻿#include "SerialPort.h"
+﻿#include "MotorSerialPort.h"
 
 #include <QElapsedTimer>
 #include <QSerialPortInfo>

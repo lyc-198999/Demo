@@ -1,5 +1,5 @@
-﻿#ifndef DEMO_SERIAL_PORT_H
-#define DEMO_SERIAL_PORT_H
+#ifndef AUTOFOCUS_SYSTEM_MOTOR_SERIAL_PORT_H
+#define AUTOFOCUS_SYSTEM_MOTOR_SERIAL_PORT_H
 
 #include <QByteArray>
 #include <QSerialPort>
@@ -85,4 +85,3 @@ private:
 };
 
 #endif
-

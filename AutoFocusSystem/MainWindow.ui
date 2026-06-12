@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>DemoClass</class>
- <widget class="QMainWindow" name="DemoClass">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>自动对焦系统</string>
+   <string>鑷姩瀵圭劍绯荤粺</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QGridLayout" name="gridLayoutRoot" rowstretch="4,0" columnstretch="5,0">
@@ -33,7 +33,7 @@
     <item row="1" column="0" colspan="2">
      <widget class="QGroupBox" name="group_log">
       <property name="title">
-       <string>日志输出</string>
+       <string>鏃ュ織杈撳嚭</string>
       </property>
       <layout class="QVBoxLayout" name="verticalLayoutLog">
        <item>
@@ -42,7 +42,7 @@
           <bool>true</bool>
          </property>
          <property name="plainText">
-          <string>系统启动，等待设备连接...</string>
+          <string>绯荤粺鍚姩锛岀瓑寰呰澶囪繛鎺?..</string>
          </property>
         </widget>
        </item>
@@ -78,7 +78,7 @@
          <item row="0" column="0">
           <widget class="QLabel" name="label_sharpnessTitle">
            <property name="text">
-            <string>清晰度:</string>
+            <string>娓呮櫚搴?</string>
            </property>
           </widget>
          </item>
@@ -92,7 +92,7 @@
          <item row="1" column="0">
           <widget class="QLabel" name="label_positionTitle">
            <property name="text">
-            <string>位置:</string>
+            <string>浣嶇疆:</string>
            </property>
           </widget>
          </item>
@@ -106,14 +106,14 @@
          <item row="2" column="0">
           <widget class="QLabel" name="label_statusTitle">
            <property name="text">
-            <string>状态:</string>
+            <string>鐘舵€?</string>
            </property>
           </widget>
          </item>
          <item row="2" column="1">
           <widget class="QLabel" name="label_status">
            <property name="text">
-            <string>待机</string>
+            <string>寰呮満</string>
            </property>
           </widget>
          </item>
@@ -123,20 +123,20 @@
       <item>
        <widget class="QGroupBox" name="group_mode">
         <property name="title">
-         <string>模式切换</string>
+         <string>妯″紡鍒囨崲</string>
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout">
          <item>
           <widget class="QRadioButton" name="radio_auto">
            <property name="text">
-            <string>自动模式</string>
+            <string>鑷姩妯″紡</string>
            </property>
           </widget>
          </item>
          <item>
           <widget class="QRadioButton" name="radio_manual">
            <property name="text">
-            <string>手动模式</string>
+            <string>鎵嬪姩妯″紡</string>
            </property>
            <property name="checked">
             <bool>true</bool>
@@ -152,20 +152,20 @@
          <bool>false</bool>
         </property>
         <property name="title">
-         <string>手动控制</string>
+         <string>鎵嬪姩鎺у埗</string>
         </property>
         <layout class="QHBoxLayout" name="horizontalLayoutManual">
          <item>
           <widget class="QPushButton" name="btn_backward">
            <property name="text">
-            <string>后退</string>
+            <string>鍚庨€€</string>
            </property>
           </widget>
          </item>
          <item>
           <widget class="QPushButton" name="btn_forward">
            <property name="text">
-            <string>前进</string>
+            <string>鍓嶈繘</string>
            </property>
           </widget>
          </item>
@@ -175,7 +175,7 @@
       <item>
        <widget class="QGroupBox" name="group_serial">
         <property name="title">
-         <string>串口连接</string>
+         <string>涓插彛杩炴帴</string>
         </property>
         <layout class="QGridLayout" name="gridLayoutSerial">
          <item row="0" column="1">
@@ -184,14 +184,14 @@
          <item row="2" column="1">
           <widget class="QPushButton" name="btn_connect">
            <property name="text">
-            <string>连接</string>
+            <string>杩炴帴</string>
            </property>
           </widget>
          </item>
          <item row="1" column="0">
           <widget class="QLabel" name="label_baudTitle">
            <property name="text">
-            <string>波特率:</string>
+            <string>娉㈢壒鐜?</string>
            </property>
           </widget>
          </item>
@@ -201,14 +201,14 @@
          <item row="0" column="0">
           <widget class="QLabel" name="label_serialTitle">
            <property name="text">
-            <string>串口:</string>
+            <string>涓插彛:</string>
            </property>
           </widget>
          </item>
          <item row="2" column="0">
           <widget class="QPushButton" name="btn_refresh">
            <property name="text">
-            <string>刷新</string>
+            <string>鍒锋柊</string>
            </property>
           </widget>
          </item>
@@ -218,7 +218,7 @@
       <item>
        <widget class="QGroupBox" name="group_motor_params">
         <property name="title">
-         <string>电机参数(下滑查看)</string>
+         <string>鐢垫満鍙傛暟(涓嬫粦鏌ョ湅)</string>
         </property>
         <layout class="QFormLayout" name="formLayoutMotorParams">
          <property name="labelAlignment">
@@ -227,14 +227,14 @@
          <item row="0" column="0">
           <widget class="QLabel" name="label_manualStepTitle">
            <property name="text">
-            <string>手动步数:</string>
+            <string>鎵嬪姩姝ユ暟:</string>
            </property>
           </widget>
          </item>
          <item row="0" column="1">
           <widget class="QSpinBox" name="spin_manual_step">
            <property name="suffix">
-            <string> 脉冲</string>
+            <string> 鑴夊啿</string>
            </property>
            <property name="minimum">
             <number>1</number>
@@ -253,7 +253,7 @@
          <item row="1" column="0">
           <widget class="QLabel" name="label_manualSpeedTitle">
            <property name="text">
-            <string>手动速度:</string>
+            <string>鎵嬪姩閫熷害:</string>
            </property>
           </widget>
          </item>
@@ -279,7 +279,7 @@
          <item row="2" column="0">
           <widget class="QLabel" name="label_manualAccelerationTitle">
            <property name="text">
-            <string>手动加减速:</string>
+            <string>鎵嬪姩鍔犲噺閫?</string>
            </property>
           </widget>
          </item>
@@ -299,14 +299,14 @@
          <item row="3" column="0">
           <widget class="QLabel" name="label_autoStepTitle">
            <property name="text">
-            <string>自动步数:</string>
+            <string>鑷姩姝ユ暟:</string>
            </property>
           </widget>
          </item>
          <item row="3" column="1">
           <widget class="QSpinBox" name="spin_auto_step">
            <property name="suffix">
-            <string> 脉冲</string>
+            <string> 鑴夊啿</string>
            </property>
            <property name="minimum">
             <number>1</number>
@@ -325,14 +325,14 @@
          <item row="4" column="0">
           <widget class="QLabel" name="label_autoFineStepTitle">
            <property name="text">
-            <string>小步长:</string>
+            <string>灏忔闀?</string>
            </property>
           </widget>
          </item>
          <item row="4" column="1">
           <widget class="QSpinBox" name="spin_auto_fine_step">
            <property name="suffix">
-            <string> 脉冲</string>
+            <string> 鑴夊啿</string>
            </property>
            <property name="minimum">
             <number>1</number>
@@ -351,7 +351,7 @@
          <item row="5" column="0">
           <widget class="QLabel" name="label_autoSpeedTitle">
            <property name="text">
-            <string>自动速度:</string>
+            <string>鑷姩閫熷害:</string>
            </property>
           </widget>
          </item>
@@ -377,7 +377,7 @@
          <item row="6" column="0">
           <widget class="QLabel" name="label_autoAccelerationTitle">
            <property name="text">
-            <string>自动加减速:</string>
+            <string>鑷姩鍔犲噺閫?</string>
            </property>
           </widget>
          </item>
@@ -429,7 +429,7 @@ QPushButton:pressed {
 }</string>
         </property>
         <property name="text">
-         <string>急停</string>
+         <string>鎬ュ仠</string>
         </property>
        </widget>
       </item>
@@ -438,7 +438,7 @@ QPushButton:pressed {
     <item row="0" column="0">
      <widget class="QGroupBox" name="group_image">
       <property name="title">
-       <string>图像显示</string>
+       <string>鍥惧儚鏄剧ず</string>
       </property>
       <layout class="QVBoxLayout" name="verticalLayoutImage">
        <item>
@@ -460,7 +460,7 @@ color: rgb(220, 220, 220);</string>
           <enum>QFrame::Sunken</enum>
          </property>
          <property name="text">
-          <string>等待图像...</string>
+          <string>绛夊緟鍥惧儚...</string>
          </property>
          <property name="scaledContents">
           <bool>false</bool>
@@ -497,7 +497,7 @@ color: rgb(220, 220, 220);</string>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources>
-  <include location="Demo.qrc"/>
+  <include location="AutoFocusSystem.qrc"/>
  </resources>
  <connections/>
 </ui>

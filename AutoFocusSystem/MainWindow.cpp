@@ -1,5 +1,5 @@
-﻿#include "Demo.h"
-#include "ui_Demo.h"
+﻿#include "MainWindow.h"
+#include "ui_MainWindow.h"
 
 #include <algorithm>
 #include <QCheckBox>
@@ -32,7 +32,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-namespace DemoWindowDetail
+namespace MainWindowDetail
 {
 constexpr int kFrameIntervalMs = 80;
 constexpr int kMaxLogBlocks = 0;
@@ -46,7 +46,7 @@ constexpr int kLogTextMinimumHeight = 140;
 constexpr int kImageColumnStretch = 3;
 constexpr int kControlColumnStretch = 2;
 constexpr const char* kSettingsOrganization = "AutoFocusSystem";
-constexpr const char* kSettingsApplication = "Demo";
+constexpr const char* kSettingsApplication = "AutoFocusSystem";
 constexpr const char* kSettingsDataDirectoryKey = "data/saveDirectory";
 constexpr const char* kSettingsAutoSaveImageKey = "data/autoSaveImage";
 constexpr const char* kSettingsAutoExportLogKey = "data/autoExportLog";
@@ -157,7 +157,7 @@ QImage MatToSaveImage(const cv::Mat& mat)
 }
 
 // 用法：将右侧功能区拆成运行、连接、参数三个页签，降低长表单带来的扫描负担。
-void ConfigureControlPanelTabs(Ui::DemoClass* ui, QWidget* controlPanelWidget)
+void ConfigureControlPanelTabs(Ui::MainWindow* ui, QWidget* controlPanelWidget)
 {
     ClearLayoutItems(ui->verticalLayoutControlPanel);
     ui->verticalLayoutControlPanel->setContentsMargins(0, 0, 0, 0);
@@ -186,7 +186,7 @@ void ConfigureControlPanelTabs(Ui::DemoClass* ui, QWidget* controlPanelWidget)
 }
 
 // 用法：把右侧功能区放进独立滚动区，避免展开低频设置时撑大主窗口或挤压日志。
-void ConfigureControlPanelScrollArea(Ui::DemoClass* ui)
+void ConfigureControlPanelScrollArea(Ui::MainWindow* ui)
 {
     auto* controlPanelWidget = new QWidget(ui->centralWidget);
     controlPanelWidget->setObjectName("widget_control_panel");
@@ -211,7 +211,7 @@ void ConfigureControlPanelScrollArea(Ui::DemoClass* ui)
 }
 
 // 用法：让右侧状态文本在窄面板内换行显示，避免撑宽或被裁切。
-void ConfigureStatusTextLayout(Ui::DemoClass* ui)
+void ConfigureStatusTextLayout(Ui::MainWindow* ui)
 {
     ui->formLayoutStatus->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     ui->formLayoutMotorParams->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
@@ -227,7 +227,7 @@ void ConfigureStatusTextLayout(Ui::DemoClass* ui)
 }
 
 // 用法：调整主布局比例，保留右侧功能区和日志区的最低可读空间。
-void ConfigureMainLayout(Ui::DemoClass* ui)
+void ConfigureMainLayout(Ui::MainWindow* ui)
 {
     ConfigureStatusTextLayout(ui);
 
@@ -250,7 +250,7 @@ void MainWindow::initializeModernUi()
     setMinimumSize(885, 680);
     resize(1180, 840);
 
-    QFile themeFile(QStringLiteral(":/Demo/ModernTheme.qss"));
+    QFile themeFile(QStringLiteral(":/AutoFocusSystem/AppTheme.qss"));
     if (themeFile.open(QIODevice::ReadOnly | QIODevice::Text))
     {
         setStyleSheet(QString::fromUtf8(themeFile.readAll()));
@@ -269,8 +269,28 @@ void MainWindow::initializeModernUi()
     ui->group_manual->setTitle(QStringLiteral("手动控制"));
     ui->group_serial->setTitle(QStringLiteral("串口连接"));
     ui->group_motor_params->setTitle(QStringLiteral("电机参数"));
+    ui->radio_auto->setText(QStringLiteral("自动模式"));
+    ui->radio_manual->setText(QStringLiteral("手动模式"));
+    ui->btn_backward->setText(QStringLiteral("后退"));
+    ui->btn_forward->setText(QStringLiteral("前进"));
+    ui->btn_connect->setText(QStringLiteral("连接"));
+    ui->btn_refresh->setText(QStringLiteral("刷新"));
+    ui->btn_emergency_stop->setText(QStringLiteral("急停"));
+    ui->label_serialTitle->setText(QStringLiteral("串口："));
+    ui->label_baudTitle->setText(QStringLiteral("波特率："));
+    ui->label_manualStepTitle->setText(QStringLiteral("手动步数："));
+    ui->label_manualSpeedTitle->setText(QStringLiteral("手动速度："));
+    ui->label_manualAccelerationTitle->setText(QStringLiteral("手动加减速："));
+    ui->label_autoStepTitle->setText(QStringLiteral("自动步数："));
+    ui->label_autoFineStepTitle->setText(QStringLiteral("小步长："));
+    ui->label_autoSpeedTitle->setText(QStringLiteral("自动速度："));
+    ui->label_autoAccelerationTitle->setText(QStringLiteral("自动加减速："));
+    ui->spin_manual_step->setSuffix(QStringLiteral(" 脉冲"));
+    ui->spin_auto_step->setSuffix(QStringLiteral(" 脉冲"));
+    ui->spin_auto_fine_step->setSuffix(QStringLiteral(" 脉冲"));
+    ui->label_image->setText(QStringLiteral("等待图像..."));
 
-    DemoWindowDetail::ClearLayoutItems(ui->formLayoutStatus);
+    MainWindowDetail::ClearLayoutItems(ui->formLayoutStatus);
     ui->label_sharpnessTitle->hide();
     ui->label_sharpness->hide();
     ui->label_positionTitle->hide();
@@ -321,13 +341,13 @@ void MainWindow::initializeModernUi()
     ui->group_log->setChecked(true);
     connect(ui->group_log, &QGroupBox::toggled, this, [this](bool checked) {
         ui->text_log->setVisible(checked);
-        ui->group_log->setMinimumHeight(checked ? DemoWindowDetail::kLogPanelMinimumHeight : 44);
+        ui->group_log->setMinimumHeight(checked ? MainWindowDetail::kLogPanelMinimumHeight : 44);
         ui->group_log->setMaximumHeight(checked ? QWIDGETSIZE_MAX : 44);
     });
 
     ui->gridLayoutRoot->removeWidget(ui->group_image);
     ui->gridLayoutRoot->removeWidget(ui->group_log);
-    DemoWindowDetail::ConfigureControlPanelScrollArea(ui);
+    MainWindowDetail::ConfigureControlPanelScrollArea(ui);
     initializeDataControls();
 
     auto* topStatusBar = new QFrame(ui->centralWidget);
@@ -382,7 +402,7 @@ void MainWindow::initializeModernUi()
     ui->gridLayoutRoot->addWidget(workspace, 1, 0, 1, 1);
     ui->gridLayoutRoot->addWidget(ui->group_log, 2, 0, 1, 2);
 
-    DemoWindowDetail::ConfigureMainLayout(ui);
+    MainWindowDetail::ConfigureMainLayout(ui);
 }
 
 // 用法：创建数据保存页签和控件，不修改 Designer 生成的 .ui 文件。
@@ -394,7 +414,7 @@ void MainWindow::initializeDataControls()
         return;
     }
 
-    auto* dataPage = DemoWindowDetail::CreateTabPage(tabs);
+    auto* dataPage = MainWindowDetail::CreateTabPage(tabs);
     auto* dataGroup = new QGroupBox(QStringLiteral("数据管理"), dataPage);
     auto* groupLayout = new QVBoxLayout(dataGroup);
     groupLayout->setContentsMargins(10, 10, 10, 10);
@@ -434,7 +454,7 @@ void MainWindow::initializeDataControls()
     connect(checkAutoSaveImage, &QCheckBox::toggled, this, [this](bool) { saveDataSettings(); });
     connect(checkAutoExportLog, &QCheckBox::toggled, this, [this](bool) { saveDataSettings(); });
 
-    DemoWindowDetail::AddWidgetBeforeStretch(dataPage, dataGroup);
+    MainWindowDetail::AddWidgetBeforeStretch(dataPage, dataGroup);
     tabs->addTab(dataPage, QStringLiteral("数据"));
     loadDataSettings();
 }
@@ -442,7 +462,7 @@ void MainWindow::initializeDataControls()
 // 用法：初始化界面控件、串口控件和相机刷新定时器。
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
-    , ui(new Ui::DemoClass)
+    , ui(new Ui::MainWindow)
     , timer(new QTimer(this))
 {
     ui->setupUi(this);
@@ -450,7 +470,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     ui->combo_baud->addItems(QStringList{ "9600", "19200", "38400", "57600", "115200" });
     ui->combo_baud->setCurrentText("115200");
-    ui->text_log->document()->setMaximumBlockCount(DemoWindowDetail::kMaxLogBlocks);
+    ui->text_log->document()->setMaximumBlockCount(MainWindowDetail::kMaxLogBlocks);
     ui->text_log->clear();
     ui->btn_connect->setCheckable(true);
     ui->btn_emergency_stop->setCheckable(true);
@@ -526,7 +546,7 @@ MainWindow::MainWindow(QWidget* parent)
               LogLevel::Info,
               false);
 
-    timer->start(DemoWindowDetail::kFrameIntervalMs);
+    timer->start(MainWindowDetail::kFrameIntervalMs);
 }
 
 // 用法：窗口销毁时关闭串口并释放 UI。
@@ -561,7 +581,7 @@ void MainWindow::updateStatusDisplay()
     ui->label_position->setText(QString("%1 脉冲（%2 圈）")
                                     .arg(currentPosition)
                                     .arg(static_cast<double>(currentPosition) /
-                                             DemoWindowDetail::kPulsesPerTurn,
+                                             MainWindowDetail::kPulsesPerTurn,
                                          0,
                                          'f',
                                          3));
@@ -761,7 +781,7 @@ void MainWindow::updateModernDashboard()
         labelFocusPositionSummary->setText(QStringLiteral("当前位置：%1 脉冲（%2 圈）")
                                                .arg(currentPosition)
                                                .arg(static_cast<double>(currentPosition) /
-                                                        DemoWindowDetail::kPulsesPerTurn,
+                                                        MainWindowDetail::kPulsesPerTurn,
                                                     0,
                                                     'f',
                                                     3));
@@ -973,7 +993,7 @@ void MainWindow::setStatusBadge(QLabel* label, const QString& text, const QStrin
 void MainWindow::selectDataSaveDirectory()
 {
     const QString startDirectory = dataSaveDirectory.isEmpty()
-                                       ? DemoWindowDetail::DefaultDataSaveDirectory()
+                                       ? MainWindowDetail::DefaultDataSaveDirectory()
                                        : dataSaveDirectory;
     const QString selectedDirectory =
         QFileDialog::getExistingDirectory(this,
@@ -1005,7 +1025,7 @@ bool MainWindow::saveCurrentImage(const QString& filePrefix, bool logSuccess)
         return false;
     }
 
-    QImage saveImage = DemoWindowDetail::MatToSaveImage(frame);
+    QImage saveImage = MainWindowDetail::MatToSaveImage(frame);
     if (saveImage.isNull())
     {
         appendLog(QStringLiteral("当前图像格式不支持保存。"), LogLevel::Error);
@@ -1013,7 +1033,7 @@ bool MainWindow::saveCurrentImage(const QString& filePrefix, bool logSuccess)
     }
 
     QDir directory(dataSaveDirectory.isEmpty()
-                       ? DemoWindowDetail::DefaultDataSaveDirectory()
+                       ? MainWindowDetail::DefaultDataSaveDirectory()
                        : dataSaveDirectory);
     if (!directory.exists() && !directory.mkpath(QStringLiteral(".")))
     {
@@ -1027,7 +1047,7 @@ bool MainWindow::saveCurrentImage(const QString& filePrefix, bool logSuccess)
     const QString baseName = filePrefix == QStringLiteral("autofocus")
                                  ? QStringLiteral("autofocus_%1").arg(timestamp)
                                  : QStringLiteral("%1_%2").arg(filePrefix, timestamp);
-    const QString filePath = DemoWindowDetail::UniqueDataFilePath(directory, baseName, QStringLiteral(".png"));
+    const QString filePath = MainWindowDetail::UniqueDataFilePath(directory, baseName, QStringLiteral(".png"));
     if (!saveImage.save(filePath, "PNG"))
     {
         appendLog(QStringLiteral("保存图像失败：%1。").arg(QDir::toNativeSeparators(filePath)),
@@ -1047,7 +1067,7 @@ bool MainWindow::saveCurrentImage(const QString& filePrefix, bool logSuccess)
 bool MainWindow::exportLog(const QString& filePrefix, bool logSuccess)
 {
     QDir directory(dataSaveDirectory.isEmpty()
-                       ? DemoWindowDetail::DefaultDataSaveDirectory()
+                       ? MainWindowDetail::DefaultDataSaveDirectory()
                        : dataSaveDirectory);
     if (!directory.exists() && !directory.mkpath(QStringLiteral(".")))
     {
@@ -1061,7 +1081,7 @@ bool MainWindow::exportLog(const QString& filePrefix, bool logSuccess)
     const QString baseName = filePrefix == QStringLiteral("autofocus")
                                  ? QStringLiteral("autofocus_%1_log").arg(timestamp)
                                  : QStringLiteral("%1_%2").arg(filePrefix, timestamp);
-    const QString filePath = DemoWindowDetail::UniqueDataFilePath(directory, baseName, QStringLiteral(".txt"));
+    const QString filePath = MainWindowDetail::UniqueDataFilePath(directory, baseName, QStringLiteral(".txt"));
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
@@ -1088,7 +1108,7 @@ bool MainWindow::exportLog(const QString& filePrefix, bool logSuccess)
 void MainWindow::openDataSaveDirectory()
 {
     QDir directory(dataSaveDirectory.isEmpty()
-                       ? DemoWindowDetail::DefaultDataSaveDirectory()
+                       ? MainWindowDetail::DefaultDataSaveDirectory()
                        : dataSaveDirectory);
     if (!directory.exists() && !directory.mkpath(QStringLiteral(".")))
     {
@@ -1109,10 +1129,10 @@ void MainWindow::openDataSaveDirectory()
 // 用法：加载数据保存配置。
 void MainWindow::loadDataSettings()
 {
-    QSettings settings(QString::fromLatin1(DemoWindowDetail::kSettingsOrganization),
-                       QString::fromLatin1(DemoWindowDetail::kSettingsApplication));
-    dataSaveDirectory = settings.value(QString::fromLatin1(DemoWindowDetail::kSettingsDataDirectoryKey),
-                                       DemoWindowDetail::DefaultDataSaveDirectory())
+    QSettings settings(QString::fromLatin1(MainWindowDetail::kSettingsOrganization),
+                       QString::fromLatin1(MainWindowDetail::kSettingsApplication));
+    dataSaveDirectory = settings.value(QString::fromLatin1(MainWindowDetail::kSettingsDataDirectoryKey),
+                                       MainWindowDetail::DefaultDataSaveDirectory())
                             .toString();
 
     if (labelDataDirectory != nullptr)
@@ -1123,7 +1143,7 @@ void MainWindow::loadDataSettings()
     if (checkAutoSaveImage != nullptr)
     {
         checkAutoSaveImage->setChecked(settings.value(
-                                             QString::fromLatin1(DemoWindowDetail::kSettingsAutoSaveImageKey),
+                                             QString::fromLatin1(MainWindowDetail::kSettingsAutoSaveImageKey),
                                              false)
                                              .toBool());
     }
@@ -1131,7 +1151,7 @@ void MainWindow::loadDataSettings()
     if (checkAutoExportLog != nullptr)
     {
         checkAutoExportLog->setChecked(settings.value(
-                                             QString::fromLatin1(DemoWindowDetail::kSettingsAutoExportLogKey),
+                                             QString::fromLatin1(MainWindowDetail::kSettingsAutoExportLogKey),
                                              false)
                                              .toBool());
     }
@@ -1140,22 +1160,22 @@ void MainWindow::loadDataSettings()
 // 用法：保存数据保存配置。
 void MainWindow::saveDataSettings()
 {
-    QSettings settings(QString::fromLatin1(DemoWindowDetail::kSettingsOrganization),
-                       QString::fromLatin1(DemoWindowDetail::kSettingsApplication));
-    settings.setValue(QString::fromLatin1(DemoWindowDetail::kSettingsDataDirectoryKey),
+    QSettings settings(QString::fromLatin1(MainWindowDetail::kSettingsOrganization),
+                       QString::fromLatin1(MainWindowDetail::kSettingsApplication));
+    settings.setValue(QString::fromLatin1(MainWindowDetail::kSettingsDataDirectoryKey),
                       dataSaveDirectory.isEmpty()
-                          ? DemoWindowDetail::DefaultDataSaveDirectory()
+                          ? MainWindowDetail::DefaultDataSaveDirectory()
                           : dataSaveDirectory);
 
     if (checkAutoSaveImage != nullptr)
     {
-        settings.setValue(QString::fromLatin1(DemoWindowDetail::kSettingsAutoSaveImageKey),
+        settings.setValue(QString::fromLatin1(MainWindowDetail::kSettingsAutoSaveImageKey),
                           checkAutoSaveImage->isChecked());
     }
 
     if (checkAutoExportLog != nullptr)
     {
-        settings.setValue(QString::fromLatin1(DemoWindowDetail::kSettingsAutoExportLogKey),
+        settings.setValue(QString::fromLatin1(MainWindowDetail::kSettingsAutoExportLogKey),
                           checkAutoExportLog->isChecked());
     }
 }

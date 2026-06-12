@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
@@ -23,25 +23,25 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <QtRcc Include="Demo.qrc">
+    <QtRcc Include="AutoFocusSystem.qrc">
       <Filter>Resource Files</Filter>
     </QtRcc>
-    <QtUic Include="Demo.ui">
+    <QtUic Include="MainWindow.ui">
       <Filter>Form Files</Filter>
     </QtUic>
-    <QtMoc Include="Demo.h">
+    <QtMoc Include="MainWindow.h">
       <Filter>Header Files</Filter>
     </QtMoc>
-    <ClCompile Include="Demo.cpp">
+    <ClCompile Include="MainWindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DemoAutoFocus.cpp">
+    <ClCompile Include="MainWindowAutoFocus.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DemoImage.cpp">
+    <ClCompile Include="MainWindowImage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DemoMotor.cpp">
+    <ClCompile Include="MainWindowMotor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -49,10 +49,10 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ImOpenCV.cpp">
+    <ClCompile Include="SpinnakerCamera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SerialPort.cpp">
+    <ClCompile Include="MotorSerialPort.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GaussianAutoFocus.cpp">
@@ -64,7 +64,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />
-    <None Include="ModernTheme.qss">
+    <None Include="AppTheme.qss">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
@@ -75,7 +75,7 @@
     <ClInclude Include="Sharpness.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SerialPort.h">
+    <ClInclude Include="MotorSerialPort.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

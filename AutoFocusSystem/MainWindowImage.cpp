@@ -1,14 +1,14 @@
-﻿#include "Demo.h"
+﻿#include "MainWindow.h"
 #include "Sharpness.h"
-#include "ui_Demo.h"
+#include "ui_MainWindow.h"
 
 #include <algorithm>
 #include <QPixmap>
 
-// 用法：由 ImOpenCV.cpp 提供，从相机获取一帧图像。
+// 用法：由 SpinnakerCamera.cpp 提供，从相机获取一帧图像。
 cv::Mat GetFrameFromCamera();
 
-namespace DemoImageDetail
+namespace MainWindowImageDetail
 {
 constexpr int kMaxDisplayImageSide = 900;
 constexpr int kMaxCameraMissesBeforeOffline = 3;
@@ -72,7 +72,7 @@ void MainWindow::updateFrame()
     if (frame.empty())
     {
         ++consecutiveEmptyFrames;
-        if (consecutiveEmptyFrames < DemoImageDetail::kMaxCameraMissesBeforeOffline)
+        if (consecutiveEmptyFrames < MainWindowImageDetail::kMaxCameraMissesBeforeOffline)
         {
             return;
         }
@@ -111,14 +111,14 @@ void MainWindow::showFrame(const cv::Mat& frame)
 {
     cv::Mat displayFrame = frame;
     const int maxSide = std::max(frame.cols, frame.rows);
-    if (maxSide > DemoImageDetail::kMaxDisplayImageSide)
+    if (maxSide > MainWindowImageDetail::kMaxDisplayImageSide)
     {
-        const double scale = static_cast<double>(DemoImageDetail::kMaxDisplayImageSide) /
+        const double scale = static_cast<double>(MainWindowImageDetail::kMaxDisplayImageSide) /
                              static_cast<double>(maxSide);
         cv::resize(frame, displayFrame, cv::Size(), scale, scale, cv::INTER_AREA);
     }
 
-    currentImage = DemoImageDetail::MatToQImage(displayFrame);
+    currentImage = MainWindowImageDetail::MatToQImage(displayFrame);
     frameFormatValid = !currentImage.isNull();
 
     if (!frameFormatValid)

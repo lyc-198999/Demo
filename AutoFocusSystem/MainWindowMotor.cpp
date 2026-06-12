@@ -1,5 +1,5 @@
-﻿#include "Demo.h"
-#include "ui_Demo.h"
+﻿#include "MainWindow.h"
+#include "ui_MainWindow.h"
 
 #include <QTimer>
 

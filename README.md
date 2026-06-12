@@ -1,4 +1,4 @@
-﻿# 自动对焦系统项目说明
+# 自动对焦系统项目说明
 
 ## 项目结构
 
@@ -6,20 +6,20 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `Demo/main.cpp` | Qt 程序入口，创建并显示主窗口。 |
-| `Demo/Demo.h` | `MainWindow` 类声明，集中保存界面、相机、电机和自动对焦状态。 |
-| `Demo/Demo.cpp` | 主窗口初始化、参数控件绑定、模式切换、状态栏显示、日志输出、图像保存和日志导出。 |
-| `Demo/DemoImage.cpp` | 相机帧刷新、图像显示、清晰度刷新和自动对焦周期推进。 |
-| `Demo/DemoMotor.cpp` | 串口刷新、驱动器连接、手动移动、急停和电机状态同步。 |
-| `Demo/DemoAutoFocus.cpp` | 自动对焦状态机、判峰、过峰确认、小步长复核和最终回焦。 |
-| `Demo/Sharpness.cpp/.h` | 0-100 归一化 Tenengrad 清晰度评价函数。 |
-| `Demo/GaussianAutoFocus.cpp/.h` | Gauss-Newton 高斯拟合，用于估计焦面位置。 |
-| `Demo/SerialPort.cpp/.h` | 正点原子自定义串口协议封装和驱动器状态读取。 |
-| `Demo/ImOpenCV.cpp` | FLIR/Spinnaker 相机取帧，并转换为 OpenCV `cv::Mat`。 |
+| `AutoFocusSystem/main.cpp` | Qt 程序入口，创建并显示主窗口。 |
+| `AutoFocusSystem/MainWindow.h` | `MainWindow` 类声明，集中保存界面、相机、电机和自动对焦状态。 |
+| `AutoFocusSystem/MainWindow.cpp` | 主窗口初始化、参数控件绑定、模式切换、状态栏显示、日志输出、图像保存和日志导出。 |
+| `AutoFocusSystem/MainWindowImage.cpp` | 相机帧刷新、图像显示、清晰度刷新和自动对焦周期推进。 |
+| `AutoFocusSystem/MainWindowMotor.cpp` | 串口刷新、驱动器连接、手动移动、急停和电机状态同步。 |
+| `AutoFocusSystem/MainWindowAutoFocus.cpp` | 自动对焦状态机、判峰、过峰确认、小步长复核和最终回焦。 |
+| `AutoFocusSystem/Sharpness.cpp/.h` | 0-100 归一化 Tenengrad 清晰度评价函数。 |
+| `AutoFocusSystem/GaussianAutoFocus.cpp/.h` | Gauss-Newton 高斯拟合，用于估计焦面位置。 |
+| `AutoFocusSystem/MotorSerialPort.cpp/.h` | 正点原子自定义串口协议封装和驱动器状态读取。 |
+| `AutoFocusSystem/SpinnakerCamera.cpp` | FLIR/Spinnaker 相机取帧，并转换为 OpenCV `cv::Mat`。 |
 
 ## 自动对焦算法
 
-自动对焦流程位于 `Demo/DemoAutoFocus.cpp`：
+自动对焦流程位于 `AutoFocusSystem/MainWindowAutoFocus.cpp`：
 
 1. 自动模式下每次相机刷新后采样当前位置和清晰度。
 2. 使用归一化 Tenengrad 清晰度，接口为 `Sharpness::Calculate`。
@@ -58,7 +58,7 @@ GaussianAutoFocus::FitResult fit =
     GaussianAutoFocus::FitGaussNewton(positions, sharpnessValues);
 ```
 
-自动对焦状态机由 `MainWindow::processAutoFocus()` 推进，通常不应在其它文件中直接操作采样数组。需要调整判峰、过峰次数、小步长策略时，优先修改 `Demo/DemoAutoFocus.cpp` 中的具名 `DemoAutoFocusDetail` 辅助函数。
+自动对焦状态机由 `MainWindow::processAutoFocus()` 推进，通常不应在其它文件中直接操作采样数组。需要调整判峰、过峰次数、小步长策略时，优先修改 `AutoFocusSystem/MainWindowAutoFocus.cpp` 中的具名 `AutoFocusDetail` 辅助函数。
 
 ## 数据保存
 
@@ -69,5 +69,5 @@ GaussianAutoFocus::FitResult fit =
 - 源码、工程文件和文档使用 UTF-8 带签名编码保存。
 - 所有异常、日志和界面提示使用中文。
 - 不使用未命名命名空间；仅使用具名 `Detail` 或职责命名空间。
-- 新增功能应优先放入对应职责文件，避免继续扩大 `Demo.cpp`。
+- 新增功能应优先放入对应职责文件，避免继续扩大 `MainWindow.cpp`。
 - 旧的勒让德拟合和未使用的 `AutoFocus.*` 已删除，当前算法以 Tenengrad 清晰度和高斯拟合为主。

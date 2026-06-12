@@ -1,7 +1,7 @@
-﻿#ifndef DEMO_MAINWINDOW_H
-#define DEMO_MAINWINDOW_H
+#ifndef AUTOFOCUS_SYSTEM_MAINWINDOW_H
+#define AUTOFOCUS_SYSTEM_MAINWINDOW_H
 
-#include "SerialPort.h"
+#include "MotorSerialPort.h"
 
 #include <QImage>
 #include <QMainWindow>
@@ -17,7 +17,7 @@ class QCheckBox;
 class QProgressBar;
 
 QT_BEGIN_NAMESPACE
-namespace Ui { class DemoClass; }
+namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
@@ -110,7 +110,7 @@ private:
     // 用法：自动对焦成功后按设置保存图像和日志。
     void handleAutoFocusArtifactsIfNeeded();
 
-    Ui::DemoClass* ui;
+    Ui::MainWindow* ui;
     QTimer* timer;
     MotorSerialPort motorSerial;
     QLabel* labelModeBadge = nullptr;
