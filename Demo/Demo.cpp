@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QFrame>
 #include <QGridLayout>
@@ -34,7 +35,7 @@
 namespace DemoWindowDetail
 {
 constexpr int kFrameIntervalMs = 80;
-constexpr int kMaxLogBlocks = 200;
+constexpr int kMaxLogBlocks = 0;
 constexpr double kPulsesPerTurn = 51200.0;
 constexpr int kImageMinimumWidth = 420;
 constexpr int kImageMinimumHeight = 236;
@@ -88,6 +89,20 @@ QString DefaultDataSaveDirectory()
     }
 
     return QDir(documentsPath).filePath(QStringLiteral("AutoFocusData"));
+}
+
+// 用法：生成不会覆盖已有文件的数据保存路径。
+QString UniqueDataFilePath(const QDir& directory, const QString& baseName, const QString& suffix)
+{
+    QString filePath = directory.filePath(baseName + suffix);
+    int duplicateIndex = 1;
+    while (QFileInfo::exists(filePath))
+    {
+        filePath = directory.filePath(QStringLiteral("%1_%2%3").arg(baseName).arg(duplicateIndex).arg(suffix));
+        ++duplicateIndex;
+    }
+
+    return filePath;
 }
 
 // 用法：把原始 OpenCV 图像转换为可保存的 QImage。
@@ -436,6 +451,7 @@ MainWindow::MainWindow(QWidget* parent)
     ui->combo_baud->addItems(QStringList{ "9600", "19200", "38400", "57600", "115200" });
     ui->combo_baud->setCurrentText("115200");
     ui->text_log->document()->setMaximumBlockCount(DemoWindowDetail::kMaxLogBlocks);
+    ui->text_log->clear();
     ui->btn_connect->setCheckable(true);
     ui->btn_emergency_stop->setCheckable(true);
 
@@ -495,16 +511,20 @@ MainWindow::MainWindow(QWidget* parent)
     updateManualControlState();
     updateStatusDisplay();
     appendLog("窗口初始化完成。");
-    appendLog("串口控制已切换为正点原子自定义协议模式。");
+    appendLog("串口控制已切换为正点原子自定义协议模式。", LogLevel::Info, false);
     appendLog(QString("手动模式默认参数：步数=%1，速度=%2RPM，加减速度=%3。")
                   .arg(manualStep)
                   .arg(manualSpeedRpm)
-                  .arg(manualAcceleration));
+                  .arg(manualAcceleration),
+              LogLevel::Info,
+              false);
     appendLog(QString("自动模式默认参数：扫描步数=%1，小步长=%2，速度=%3RPM，加减速度=%4。")
                   .arg(autoFocusScanStep)
                   .arg(autoFocusFineStep)
                   .arg(autoFocusSpeedRpm)
-                  .arg(autoFocusAcceleration));
+                  .arg(autoFocusAcceleration),
+              LogLevel::Info,
+              false);
 
     timer->start(DemoWindowDetail::kFrameIntervalMs);
 }
@@ -1003,11 +1023,11 @@ bool MainWindow::saveCurrentImage(const QString& filePrefix, bool logSuccess)
         return false;
     }
 
-    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
-    const QString fileName = filePrefix == QStringLiteral("autofocus")
-                                 ? QStringLiteral("autofocus_%1.png").arg(timestamp)
-                                 : QStringLiteral("%1_%2.png").arg(filePrefix, timestamp);
-    const QString filePath = directory.filePath(fileName);
+    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss_zzz"));
+    const QString baseName = filePrefix == QStringLiteral("autofocus")
+                                 ? QStringLiteral("autofocus_%1").arg(timestamp)
+                                 : QStringLiteral("%1_%2").arg(filePrefix, timestamp);
+    const QString filePath = DemoWindowDetail::UniqueDataFilePath(directory, baseName, QStringLiteral(".png"));
     if (!saveImage.save(filePath, "PNG"))
     {
         appendLog(QStringLiteral("保存图像失败：%1。").arg(QDir::toNativeSeparators(filePath)),
@@ -1037,11 +1057,11 @@ bool MainWindow::exportLog(const QString& filePrefix, bool logSuccess)
         return false;
     }
 
-    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
-    const QString fileName = filePrefix == QStringLiteral("autofocus")
-                                 ? QStringLiteral("autofocus_%1_log.txt").arg(timestamp)
-                                 : QStringLiteral("%1_%2.txt").arg(filePrefix, timestamp);
-    const QString filePath = directory.filePath(fileName);
+    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss_zzz"));
+    const QString baseName = filePrefix == QStringLiteral("autofocus")
+                                 ? QStringLiteral("autofocus_%1_log").arg(timestamp)
+                                 : QStringLiteral("%1_%2").arg(filePrefix, timestamp);
+    const QString filePath = DemoWindowDetail::UniqueDataFilePath(directory, baseName, QStringLiteral(".txt"));
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
@@ -1049,7 +1069,7 @@ bool MainWindow::exportLog(const QString& filePrefix, bool logSuccess)
         return false;
     }
 
-    const QByteArray content = ui->text_log->toPlainText().toUtf8();
+    const QByteArray content = sessionLogEntries.join(QStringLiteral("\n")).toUtf8();
     if (file.write(content) != content.size())
     {
         appendLog(QStringLiteral("写入日志文件失败：%1。").arg(file.errorString()), LogLevel::Error);
@@ -1213,8 +1233,8 @@ MainWindow::LogLevel MainWindow::effectiveLogLevel(const QString& message, LogLe
     return LogLevel::Info;
 }
 
-// 用法：向日志框追加带时间戳的中文日志。
-void MainWindow::appendLog(const QString& message, LogLevel level)
+// 用法：记录带时间戳的中文日志，可选择是否显示在界面。
+void MainWindow::appendLog(const QString& message, LogLevel level, bool showInUi)
 {
     const LogLevel displayLevel = effectiveLogLevel(message, level);
     QString tag = QStringLiteral("信息");
@@ -1233,9 +1253,14 @@ void MainWindow::appendLog(const QString& message, LogLevel level)
         break;
     }
 
-    const QString timestamp = QDateTime::currentDateTime().toString("HH:mm:ss");
-    ui->text_log->appendPlainText(QStringLiteral("[%1] [%2] %3")
-                                      .arg(timestamp)
-                                      .arg(tag)
-                                      .arg(message));
+    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss.zzz"));
+    const QString line = QStringLiteral("[%1] [%2] %3")
+                             .arg(timestamp)
+                             .arg(tag)
+                             .arg(message);
+    sessionLogEntries.append(line);
+    if (showInUi)
+    {
+        ui->text_log->appendPlainText(line);
+    }
 }

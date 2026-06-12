@@ -7,6 +7,7 @@
 #include <QMainWindow>
 #include <QResizeEvent>
 #include <QString>
+#include <QStringList>
 #include <QTimer>
 #include <opencv2/opencv.hpp>
 #include <vector>
@@ -79,7 +80,7 @@ private:
     // 用法：同步驱动器状态到界面。
     bool synchronizeMotorStatus(bool logOnFailure = true);
     // 用法：追加日志文本。
-    void appendLog(const QString& message, LogLevel level = LogLevel::Info);
+    void appendLog(const QString& message, LogLevel level = LogLevel::Info, bool showInUi = true);
     // 用法：发送手动相对移动。
     void handleManualMove(double delta);
     // 用法：推进自动对焦状态机。
@@ -172,6 +173,7 @@ private:
     QString autoFocusBlockReason;
     QString motorRunState = "未连接";
     QString dataSaveDirectory;
+    QStringList sessionLogEntries;
     bool autoFocusArtifactsSaved = false;
 };
 

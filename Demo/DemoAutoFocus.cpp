@@ -512,11 +512,13 @@ void MainWindow::processAutoFocus()
             DemoAutoFocusDetail::IsSignificantSharpnessRise(autoFocusSharpnessValues[sampleCount - 2],
                                                             autoFocusSharpnessValues[sampleCount - 1]))
         {
-            appendLog("检测到清晰度上升，继续同方向扫描以确认下降侧。");
+            appendLog("检测到清晰度上升，继续同方向扫描以确认下降侧。", LogLevel::Info, false);
         }
         else if (hasSeenRise && postPeakSamples > 0)
         {
-            appendLog(QString("已过峰 %1 次，继续同方向扫描至过峰 3 次。").arg(postPeakSamples));
+            appendLog(QString("已过峰 %1 次，继续同方向扫描至过峰 3 次。").arg(postPeakSamples),
+                      LogLevel::Info,
+                      false);
         }
 
         const bool useFineStep =
@@ -750,7 +752,9 @@ bool MainWindow::appendAutoFocusSample()
 
     appendLog(QString("自动对焦采样：当前位置=%1，清晰度=%2。")
                   .arg(position, 0, 'f', 0)
-                  .arg(currentSharpness, 0, 'f', 2));
+                  .arg(currentSharpness, 0, 'f', 2),
+              LogLevel::Info,
+              false);
     updateStatusDisplay();
     return true;
 }
@@ -807,7 +811,9 @@ bool MainWindow::sendAutoFocusMove(double deltaPulses, const QString& reason)
                   .arg(forward ? "前进" : "后退")
                   .arg(pulseCount)
                   .arg(autoFocusSpeedRpm)
-                  .arg(autoFocusAcceleration));
+                  .arg(autoFocusAcceleration),
+              LogLevel::Info,
+              false);
 
     QTimer::singleShot(150, this, [this]() { synchronizeMotorStatus(false); });
     QTimer::singleShot(DemoAutoFocusDetail::kAutoFocusMoveSettleMs, this, [this]() {
